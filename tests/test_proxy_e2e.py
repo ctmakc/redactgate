@@ -288,6 +288,51 @@ def test_responses_route_also_redacts(make_client, fake_provider):
     assert "[[SIN_" in sent_user
 
 
+def test_responses_route_redacts_nested_input_shape(make_client, fake_provider):
+    """The standard OpenAI Responses shape (input=[{role,content:[{type:input_text,text}]}])
+    — the one every official SDK emits — must be redacted. This was a CRITICAL bypass."""
+    client = make_client()
+    resp = client.post(
+        "/v1/responses",
+        json={
+            "model": "gpt",
+            "input": [
+                {"role": "user", "content": [{"type": "input_text", "text": f"SIN {SIN}"}]}
+            ],
+        },
+    )
+    assert resp.status_code == 200
+    sent_text = fake_provider.received_payloads[-1]["input"][0]["content"][0]["text"]
+    assert SIN not in sent_text  # raw PII must NOT reach upstream
+    assert "[[SIN_" in sent_text
+
+
+def test_tool_call_arguments_are_redacted_e2e(make_client, fake_provider):
+    """PII inside an assistant tool-call's JSON arguments must be redacted before upstream."""
+    client = make_client()
+    resp = client.post(
+        "/v1/chat/completions",
+        json={
+            "model": "gpt",
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [
+                        {"id": "c1", "type": "function",
+                         "function": {"name": "f", "arguments": f'{{"sin": "{SIN}"}}'}}
+                    ],
+                },
+                {"role": "user", "content": "continue"},
+            ],
+        },
+    )
+    assert resp.status_code == 200
+    args = fake_provider.received_payloads[-1]["messages"][0]["tool_calls"][0]["function"]["arguments"]
+    assert SIN not in args
+    assert "[[SIN_" in args
+
+
 # ── Hard-block policy -> 422 ─────────────────────────────────────────────────────
 
 
