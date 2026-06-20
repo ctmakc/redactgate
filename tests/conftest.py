@@ -63,6 +63,24 @@ def integration_only():
     )
 
 
+@pytest.fixture(scope="session", autouse=True)
+def _apply_migrations_for_integration():
+    """When RUN_INTEGRATION=1, apply migrations once so the integration tests are
+    self-contained — CI (and a fresh dev DB) start an empty Postgres with no schema."""
+    if os.environ.get("RUN_INTEGRATION") == "1":
+        import asyncio
+
+        from app.db import dispose_engine
+        from app.migrate import apply_migrations
+
+        async def _setup():
+            await apply_migrations()
+            await dispose_engine()
+
+        asyncio.run(_setup())
+    yield
+
+
 @pytest.fixture(autouse=True)
 def _reset_db_engine_singleton():
     """Reset the global async engine after every test.
