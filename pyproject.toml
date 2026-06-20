@@ -1,0 +1,61 @@
+[project]
+name = "redactgate"
+version = "0.1.0"
+description = "Self-hosted PII/financial-redaction firewall in front of any cloud LLM."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "AGPL-3.0-or-later" }
+authors = [{ name = "INNOVA CONSULT LTD" }]
+dependencies = [
+    "fastapi>=0.115,<0.116",
+    "uvicorn[standard]>=0.30,<0.35",
+    "gunicorn>=22.0",
+    "httpx>=0.27,<0.29",
+    "pydantic>=2.7,<3",
+    "pydantic-settings>=2.3,<3",
+    "sqlalchemy[asyncio]>=2.0.30,<2.1",
+    "asyncpg>=0.29,<0.31",
+    "cryptography>=43.0",
+    "argon2-cffi>=23.1",
+    "pyyaml>=6.0",
+    "python-multipart>=0.0.9",
+    "arq>=0.26",
+    "redis>=5.0",
+]
+
+[project.optional-dependencies]
+# Heavy NER stack — optional so the core engine installs and runs (regex-only) without it.
+ner = [
+    "presidio-analyzer>=2.2",
+    "spacy>=3.7",
+]
+dev = [
+    "pytest>=8.2",
+    "pytest-asyncio>=0.23",
+    "respx>=0.21",
+    "ruff>=0.5",
+    "freezegun>=1.5",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+markers = [
+    "integration: requires a live Postgres/Redis (skipped by default in CI unit lane)",
+    "needs_presidio: requires the optional presidio/spacy extra",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501"]
