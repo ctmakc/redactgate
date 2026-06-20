@@ -66,6 +66,12 @@ async def lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
+    # Fail-closed: refuse to boot a production process with the insecure dev-fallback
+    # keys or an unguarded admin API.
+    problems = settings.runtime_problems()
+    if problems:
+        raise RuntimeError("insecure configuration:\n  - " + "\n  - ".join(problems))
+
     app = FastAPI(
         title="RedactGate",
         version=__version__,
@@ -75,10 +81,25 @@ def create_app() -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_origins=settings.cors_origin_list,
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type", "X-Admin-Token"],
     )
+
+    @app.middleware("http")
+    async def _limit_body_size(request, call_next):
+        # Reject oversized bodies before they reach the (CPU-heavy) detection path.
+        cl = request.headers.get("content-length")
+        if cl is not None:
+            try:
+                if int(cl) > settings.max_body_bytes:
+                    return JSONResponse(
+                        status_code=413,
+                        content=error_body("request body too large", code="payload_too_large"),
+                    )
+            except ValueError:
+                pass
+        return await call_next(request)
 
     # Wire routers defensively — a not-yet-implemented router should not stop boot.
     for module_path, attr in (

@@ -82,6 +82,10 @@ class Settings(BaseSettings):
     admin_token: str = ""  # gates the admin API/UI when set
     require_api_key: bool = True  # if False, a default dev team/policy is used
 
+    # ── Hardening ─────────────────────────────────────────────────────────
+    max_body_bytes: int = 2_000_000  # reject request bodies larger than this (413)
+    cors_origins: str = "http://localhost:3088,http://localhost:3000"  # comma list; "*" allowed
+
     # ── Derived helpers ───────────────────────────────────────────────────
     @field_validator("vault_master_key", "fingerprint_hmac_key", "audit_hmac_key")
     @classmethod
@@ -111,6 +115,27 @@ class Settings(BaseSettings):
         seed = (field + "-redactgate-dev").encode()
         return (seed * 32)[:32]
 
+    def runtime_problems(self) -> list[str]:
+        """Fatal misconfigurations for the current environment (fail-closed in prod).
+
+        Guards against shipping the deterministic dev-fallback keys (which would make the
+        whole vault decryptable by anyone) or leaving the admin API / proxy unauthenticated.
+        """
+        problems: list[str] = []
+        if self.environment == "prod":
+            for f in ("vault_master_key", "fingerprint_hmac_key", "audit_hmac_key"):
+                if not getattr(self, f):
+                    problems.append(
+                        f"{f} must be set in production (refusing the insecure dev fallback)"
+                    )
+            if not self.admin_token:
+                problems.append(
+                    "admin_token must be set in production (the admin API is otherwise unguarded)"
+                )
+            if not self.require_api_key:
+                problems.append("require_api_key must be true in production")
+        return problems
+
     @property
     def pack_codes(self) -> list[str]:
         return [c.strip().upper() for c in self.default_pack_codes.split(",") if c.strip()]
@@ -118,6 +143,10 @@ class Settings(BaseSettings):
     @property
     def presidio_language_list(self) -> list[str]:
         return [c.strip() for c in self.presidio_languages.split(",") if c.strip()]
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [c.strip() for c in self.cors_origins.split(",") if c.strip()]
 
 
 @lru_cache

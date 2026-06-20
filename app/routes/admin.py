@@ -27,8 +27,16 @@ router = APIRouter(prefix="/admin")
 async def require_admin(
     x_admin_token: Annotated[str | None, Header(alias="X-Admin-Token")] = None,
 ) -> None:
-    """Gate admin routes on the configured token. Empty token ⇒ open (dev)."""
-    if settings.admin_token and x_admin_token != settings.admin_token:
+    """Gate admin routes on the configured token.
+
+    Fail-closed when no token is configured: only the ``dev`` environment leaves the admin
+    API open. In ``test``/``prod`` an unset ``admin_token`` returns 503 rather than silently
+    granting access (prod is additionally blocked from booting by ``runtime_problems``)."""
+    if not settings.admin_token:
+        if settings.environment == "dev":
+            return
+        raise HTTPException(status_code=503, detail="admin API not configured (set ADMIN_TOKEN)")
+    if x_admin_token != settings.admin_token:
         raise HTTPException(status_code=401, detail="invalid or missing admin token")
 
 

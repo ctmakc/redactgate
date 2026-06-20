@@ -77,6 +77,10 @@ uvicorn app.main:app --reload --port 8000
 
 See [`AGENTS.md`](AGENTS.md) for the module map and the contract between components, and `migrations/001_init.sql` for the canonical schema.
 
+## Security
+
+RedactGate is a privacy firewall — see [docs/SECURITY.md](docs/SECURITY.md) for the threat model and the (fixed) findings from the 2026-06-20 adversarial audit.
+
 ## License
 
 AGPL-3.0-or-later. Commercial / AGPL-exemption licensing available for closed deployments — see `LICENSE`.

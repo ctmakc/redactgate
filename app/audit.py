@@ -112,8 +112,23 @@ async def record_event(
     completion_tokens: int | None = None,
     latency_ms: int | None = None,
 ) -> AuditEvent:
-    """Append a new audit event, linking it into the team's hash chain."""
+    """Append a new audit event, linking it into the team's hash chain.
+
+    Serialized per team with a transaction-scoped advisory lock so concurrent requests
+    cannot interleave the (read last_hash → compute → INSERT) sequence and fork the chain.
+    The lock auto-releases on commit/rollback of the surrounding transaction.
+    """
+    from sqlalchemy import text
+
     from app.models import AuditEvent
+
+    # Per-team critical section (no-op on non-Postgres backends, e.g. a hypothetical sqlite).
+    try:
+        await session.execute(
+            text("SELECT pg_advisory_xact_lock(hashtext(:t))"), {"t": str(team_id)}
+        )
+    except Exception:  # noqa: BLE001 - lock is a hardening measure, never fatal
+        pass
 
     payload = _event_payload(
         team_id=team_id,

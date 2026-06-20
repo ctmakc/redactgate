@@ -14,6 +14,7 @@ Translates the canonical OpenAI chat payload to the Gemini ``generateContent`` s
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import AsyncIterator
 from typing import Any
 
@@ -22,6 +23,9 @@ import httpx
 from app.config import Settings
 from app.gateway.base import Provider, ProviderError, register_provider
 from app.gateway.openai import build_chunk, build_completion, is_generic_model, new_id
+
+# Strict model-name charset — the model is interpolated into the upstream URL path.
+_MODEL_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 
 # Gemini finishReason -> OpenAI finish_reason
 _FINISH_MAP = {
@@ -83,7 +87,17 @@ class GeminiProvider(Provider):
 
     def _resolve_model(self, payload: dict[str, Any]) -> str:
         model = payload.get("model")
-        return self._default_model if is_generic_model(model) else str(model)
+        if is_generic_model(model):
+            return self._default_model
+        resolved = str(model)
+        # SECURITY: the model is interpolated into the upstream URL path
+        # (/models/{model}:generateContent). Reject anything outside a strict model-name
+        # charset so a caller cannot path-traverse or redirect the request.
+        if not _MODEL_RE.match(resolved):
+            raise ProviderError(
+                f"invalid model name '{resolved}'", status_code=400, provider=self.name
+            )
+        return resolved
 
     def _body(self, payload: dict[str, Any]) -> dict[str, Any]:
         system, contents = _translate(payload)

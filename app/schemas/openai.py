@@ -18,6 +18,7 @@ Both functions walk the SAME fields in the SAME order. ``inject_texts`` requires
 from __future__ import annotations
 
 import copy
+from collections.abc import Callable
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict
@@ -56,47 +57,87 @@ class ResponsesRequest(BaseModel):
 
 
 # ── Text walk: which fields carry redactable user text ─────────────────────────
+#
+# SECURITY: every text field that could carry user PII MUST be walked, or it reaches
+# the upstream LLM un-redacted. We cover: message `content` (str or text/​input/​output
+# parts), assistant `tool_calls[].function.arguments` and legacy `function_call.arguments`
+# (JSON strings that routinely embed PII), and the /v1/responses `input` (a string, a flat
+# list of text parts, OR a list of message objects with nested `content`).
+#
+# ``extract_texts`` and ``inject_texts`` are BOTH built on the single ``_map_texts`` walker
+# so they can never drift out of alignment (a drift = either a leak or a corrupted payload).
 
-# We redact text in message content (str or text-parts). We deliberately DO NOT
-# redact role/name/tool schemas. Walk order: messages in order; within a message,
-# string content first, else each text part in order.
+_TEXT_PART_TYPES = ("text", "input_text", "output_text")
 
 
-def _message_text_parts(content: Any) -> list[tuple[str, Any]]:
-    """Return [(kind, locator)] describing extractable text in a message's content.
+def _walk_content(content: Any, fn: Callable[[str], str]) -> Any:
+    """Apply ``fn`` to redactable text in a message ``content`` (str or list of parts).
 
-    kind == "str"  -> the whole content is a string
-    kind == "part" -> locator is the index into the content list of a text part
+    List parts are mutated in place; a string content returns the transformed string.
     """
-    out: list[tuple[str, Any]] = []
     if isinstance(content, str):
-        out.append(("str", None))
-    elif isinstance(content, list):
-        for i, part in enumerate(content):
-            if isinstance(part, dict) and part.get("type") in ("text", "input_text"):
-                if isinstance(part.get("text"), str):
-                    out.append(("part", i))
+        return fn(content)
+    if isinstance(content, list):
+        for part in content:
+            if (
+                isinstance(part, dict)
+                and part.get("type") in _TEXT_PART_TYPES
+                and isinstance(part.get("text"), str)
+            ):
+                part["text"] = fn(part["text"])
+    return content
+
+
+def _walk_message(msg: Any, fn: Callable[[str], str]) -> None:
+    """Apply ``fn`` to every redactable text in one message dict (in place)."""
+    if not isinstance(msg, dict):
+        return
+    if "content" in msg:
+        msg["content"] = _walk_content(msg.get("content"), fn)
+    for tc in msg.get("tool_calls") or []:
+        if isinstance(tc, dict):
+            func = tc.get("function")
+            if isinstance(func, dict) and isinstance(func.get("arguments"), str):
+                func["arguments"] = fn(func["arguments"])
+    fc = msg.get("function_call")
+    if isinstance(fc, dict) and isinstance(fc.get("arguments"), str):
+        fc["arguments"] = fn(fc["arguments"])
+
+
+def _map_texts(payload: dict[str, Any], fn: Callable[[str], str]) -> dict[str, Any]:
+    """Deep-copy ``payload`` and apply ``fn`` to every redactable text in a fixed order.
+
+    The ONE source of truth for what counts as redactable text — both reading
+    (``extract_texts``) and rewriting (``inject_texts``) walk through here."""
+    out = copy.deepcopy(payload)
+    for msg in out.get("messages") or []:
+        _walk_message(msg, fn)
+    inp = out.get("input")
+    if isinstance(inp, str):
+        out["input"] = fn(inp)
+    elif isinstance(inp, list):
+        for item in inp:
+            if not isinstance(item, dict):
+                continue
+            if "content" in item or "tool_calls" in item:
+                # a Responses-API message object: {role, content: str|parts, tool_calls?}
+                _walk_message(item, fn)
+            elif item.get("type") in _TEXT_PART_TYPES and isinstance(item.get("text"), str):
+                item["text"] = fn(item["text"])  # flat input_text part
+            elif isinstance(item.get("text"), str):
+                item["text"] = fn(item["text"])  # bare {text: ...}
     return out
 
 
 def extract_texts(payload: dict[str, Any]) -> list[str]:
     """Pull every redactable text string out of an OpenAI-style request payload."""
     texts: list[str] = []
-    for msg in payload.get("messages", []) or []:
-        content = msg.get("content")
-        for kind, loc in _message_text_parts(content):
-            if kind == "str":
-                texts.append(content)
-            else:
-                texts.append(content[loc]["text"])
-    # /v1/responses style: top-level `input` may be a string or list of parts
-    inp = payload.get("input")
-    if isinstance(inp, str):
-        texts.append(inp)
-    elif isinstance(inp, list):
-        for part in inp:
-            if isinstance(part, dict) and isinstance(part.get("text"), str):
-                texts.append(part["text"])
+
+    def _collect(t: str) -> str:
+        texts.append(t)
+        return t
+
+    _map_texts(payload, _collect)
     return texts
 
 
@@ -107,23 +148,8 @@ def inject_texts(payload: dict[str, Any], new_texts: list[str]) -> dict[str, Any
         raise ValueError(
             f"inject_texts length mismatch: got {len(new_texts)}, expected {expected}"
         )
-    out = copy.deepcopy(payload)
     it = iter(new_texts)
-    for msg in out.get("messages", []) or []:
-        content = msg.get("content")
-        for kind, loc in _message_text_parts(content):
-            if kind == "str":
-                msg["content"] = next(it)
-            else:
-                content[loc]["text"] = next(it)
-    inp = out.get("input")
-    if isinstance(inp, str):
-        out["input"] = next(it)
-    elif isinstance(inp, list):
-        for part in inp:
-            if isinstance(part, dict) and isinstance(part.get("text"), str):
-                part["text"] = next(it)
-    return out
+    return _map_texts(payload, lambda _t: next(it))
 
 
 # ── Response text access (for re-inflation of model output) ────────────────────

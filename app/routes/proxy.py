@@ -11,6 +11,7 @@ raw entity value, and never the redacted/clear payload text.
 from __future__ import annotations
 
 import json
+import logging
 import time
 from typing import TYPE_CHECKING, Any
 
@@ -73,6 +74,8 @@ def _usage(completion: dict[str, Any]) -> tuple[int | None, int | None]:
     return usage.get("prompt_tokens"), usage.get("completion_tokens")
 
 
+_log = logging.getLogger("redactgate.proxy")
+
 async def _safe_audit(
     audit_sink: DBAuditSink | None,
     *,
@@ -102,7 +105,9 @@ async def _safe_audit(
             completion_tokens=completion_tokens,
             latency_ms=latency_ms,
         )
-    except Exception:  # noqa: BLE001 - audit failure is logged upstream, never fatal here
+    except Exception:  # noqa: BLE001 - never fatal to the response path
+        # Loud log: a dropped audit event means a (redacted) request went unrecorded.
+        _log.warning("audit write failed for route=%s provider=%s — event NOT recorded", route, provider)
         return
 
 
@@ -145,8 +150,9 @@ async def _safe_audit_fresh(
                 )
                 await s.commit()
             return
-        except Exception:  # noqa: BLE001 - try unlinked, then give up silently
+        except Exception:  # noqa: BLE001 - try unlinked, then give up
             continue
+    _log.warning("streaming audit write failed for route=%s provider=%s — event NOT recorded", route, provider)
 
 
 async def _read_payload(request: Request) -> dict[str, Any]:

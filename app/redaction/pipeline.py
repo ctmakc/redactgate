@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from app.config import Settings, settings
+from app.redaction.normalize import normalize_text
 from app.schemas.openai import (
     HardBlockError,
     extract_completion_text,
@@ -91,7 +92,10 @@ class RedactionPipeline:
         Raises :class:`HardBlockError` if the policy forbids a detected entity type; the
         caller writes a *blocked* audit event and returns 422.
         """
-        texts = extract_texts(payload)
+        # Normalize first: fold Unicode/zero-width evasion tricks to canonical ASCII so
+        # the detectors can't be bypassed with look-alike digits or invisible separators.
+        # The normalized text is what gets tokenized and forwarded upstream.
+        texts = [normalize_text(t) for t in extract_texts(payload)]
 
         # Open one session so the same value maps to the same placeholder everywhere in
         # this request (referential consistency).

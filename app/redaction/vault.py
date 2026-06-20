@@ -77,22 +77,22 @@ class Vault:
     async def _allocate_placeholder(
         self, session_id: str, entity_type: str, fingerprint: str
     ) -> str:
-        """Pick a placeholder for a NEW fingerprint, extending the hex on collision.
+        """Pick a fresh placeholder for a NEW value, using a RANDOM token suffix.
 
-        Starts from the 6-char fingerprint prefix; if that placeholder is already taken in
-        this session by a *different* fingerprint, lengthen the hex suffix by 2 chars and
-        retry. Bounded by the available fingerprint hex (64 chars from SHA-256).
+        SECURITY: the suffix is random and unrelated to the value/fingerprint, so the
+        placeholder forwarded to the upstream LLM leaks no bits of the value. Referential
+        consistency (same value → same placeholder) is handled by the ``get_by_fingerprint``
+        dedup in :meth:`tokenize` *before* this is ever called. On the (vanishing) chance of
+        a placeholder collision within the session we draw again and lengthen the token.
         """
-        length = 6
-        while length <= len(fingerprint):
-            token_hex = fingerprint[:length]
-            placeholder = make_placeholder(entity_type, token_hex)
-            existing = await self._store.get_by_placeholder(session_id, placeholder)
-            if existing is None or existing.value_fingerprint == fingerprint:
-                return placeholder
-            length += 2
-        # Extremely unlikely: full fingerprint collided. Fall back to the longest form.
-        return make_placeholder(entity_type, fingerprint)
+        for nbytes in (3, 4, 5, 6):  # 6, 8, 10, 12 hex chars
+            for _ in range(8):
+                token_hex = os.urandom(nbytes).hex()
+                placeholder = make_placeholder(entity_type, token_hex)
+                if await self._store.get_by_placeholder(session_id, placeholder) is None:
+                    return placeholder
+        # Astronomically unlikely fallback: a keyed value still unique within the session.
+        return make_placeholder(entity_type, fingerprint[:12])
 
     def _encrypt(self, session_id: str, value: str) -> bytes:
         dek = _derive_dek(self._master_key, session_id)
