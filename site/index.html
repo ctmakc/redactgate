@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RedactGate — use any cloud LLM, never leak a client's record</title>
+    <meta
+      name="description"
+      content="A self-hosted PII/financial-redaction firewall. Reversibly tokenize sensitive data before any cloud-LLM call, then re-inflate the answer. Drop-in OpenAI-compatible. AGPL-3.0."
+    />
+    <meta property="og:title" content="RedactGate — the redaction firewall for cloud LLMs" />
+    <meta
+      property="og:description"
+      content="Raw client data never crosses the wire. Reversible tokenization keeps answer quality. Hash-chained audit. docker compose up."
+    />
+    <style>
+      /* ── REDACTION FIELD ─────────────────────────────────────────────── */
+      :root {
+        --bg: #ece7dd;
+        --surface: #f6f2ea;
+        --ink: #16140f;
+        --ink-2: #4a463c;
+        --rule: #c9c2b2;
+        --seal: #1b6e78;
+        --vermillion: #a8331f;
+        --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        --mono: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Menlo, monospace;
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      html { scroll-behavior: smooth; }
+      body {
+        background: var(--bg);
+        color: var(--ink);
+        font-family: var(--sans);
+        font-feature-settings: "tnum" 1;
+        -webkit-font-smoothing: antialiased;
+        line-height: 1.5;
+      }
+      a { color: inherit; }
+      .mono { font-family: var(--mono); }
+      .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+      .seal { color: var(--seal); }
+
+      /* nav */
+      nav {
+        position: sticky; top: 0; z-index: 10;
+        background: rgba(236, 231, 221, 0.85);
+        backdrop-filter: blur(8px);
+        border-bottom: 1px solid var(--rule);
+      }
+      nav .row { display: flex; align-items: center; gap: 16px; height: 56px; }
+      .mark { display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-weight: 600; font-size: 15px; }
+      .mark .sq { width: 12px; height: 12px; background: var(--seal); }
+      .mark .dot { width: 6px; height: 6px; border-radius: 999px; background: var(--seal); }
+      nav .spacer { flex: 1; }
+      nav a.link { font-family: var(--mono); font-size: 13px; color: var(--ink-2); text-decoration: none; }
+      nav a.link:hover { color: var(--ink); }
+      .btn {
+        display: inline-flex; align-items: center; gap: 8px;
+        font-family: var(--mono); font-size: 13px; font-weight: 500;
+        border-radius: 4px; padding: 8px 14px; text-decoration: none; transition: 0.15s;
+      }
+      .btn-solid { background: var(--ink); color: var(--surface); }
+      .btn-solid:hover { background: #000; }
+      .btn-ghost { border: 1px solid var(--rule); color: var(--ink); background: var(--surface); }
+      .btn-ghost:hover { background: var(--bg); }
+
+      /* hero */
+      header { padding: 80px 0 64px; }
+      .eyebrow { font-family: var(--mono); font-size: 12px; color: var(--ink-2); letter-spacing: 0.02em; }
+      h1 { font-size: clamp(34px, 5.2vw, 56px); line-height: 1.04; font-weight: 650; letter-spacing: -0.02em; max-width: 16ch; margin-top: 14px; }
+      .sub { margin-top: 20px; max-width: 60ch; font-size: 18px; color: var(--ink-2); }
+      .cta { margin-top: 28px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+      .cta .note { font-family: var(--mono); font-size: 12px; color: var(--ink-2); }
+
+      /* the live redaction demo — the signature */
+      .demo {
+        margin-top: 44px; border: 1px solid var(--rule); background: var(--surface);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+        display: grid; grid-template-columns: 1fr; gap: 0;
+      }
+      @media (min-width: 760px) { .demo { grid-template-columns: 1fr 1fr; } }
+      .demo .pane { padding: 20px 22px; }
+      .demo .pane + .pane { border-top: 1px solid var(--rule); }
+      @media (min-width: 760px) { .demo .pane + .pane { border-top: 0; border-left: 1px solid var(--rule); } }
+      .demo .cap { font-family: var(--mono); font-size: 12px; color: var(--ink-2); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+      .demo .cap .pip { width: 6px; height: 6px; border-radius: 999px; background: var(--seal); }
+      .demo .cap.out .pip { background: var(--ink); border-radius: 0; width: 14px; height: 8px; }
+      .demo .msg { font-size: 15px; line-height: 1.75; }
+      .demo .you { color: var(--ink); }
+      .demo .up { color: var(--ink-2); }
+
+      /* token + reveal bar */
+      .tok { position: relative; display: inline-block; font-family: var(--mono); font-size: 0.86em;
+        border: 1px solid var(--rule); border-radius: 3px; padding: 0 4px; background: var(--bg); white-space: nowrap; }
+      .tok .br { color: var(--seal); }
+      .tok .cover { position: absolute; inset: 0; background: var(--ink); clip-path: inset(0 0 0 100%); }
+      .tok.sealing .cover { animation: cover 2.6s steps(1) infinite; }
+      @keyframes cover {
+        0% { clip-path: inset(0 100% 0 0); }     /* covered */
+        18% { clip-path: inset(0 0 0 0); }
+        40% { clip-path: inset(0 0 0 100%); }    /* revealed */
+        100% { clip-path: inset(0 0 0 100%); }
+      }
+      /* readable sample PII on the left, marked as detected (vermillion underline) */
+      .raw { color: var(--ink); border-bottom: 2px solid var(--vermillion); padding-bottom: 1px; white-space: nowrap; }
+
+      /* stat strip */
+      .stats { border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); background: var(--surface); }
+      .stats .row { display: grid; grid-template-columns: repeat(2, 1fr); }
+      @media (min-width: 760px) { .stats .row { grid-template-columns: repeat(4, 1fr); } }
+      .stat { padding: 28px 24px; border-left: 1px solid var(--rule); }
+      .stat:first-child { border-left: 0; }
+      .stat .n { font-size: 30px; font-weight: 650; font-variant-numeric: tabular-nums; }
+      .stat .l { font-family: var(--mono); font-size: 12px; color: var(--ink-2); margin-top: 6px; }
+
+      /* sections */
+      section { padding: 72px 0; }
+      .sec-eyebrow { font-family: var(--mono); font-size: 12px; color: var(--seal); letter-spacing: 0.04em; }
+      h2 { font-size: clamp(26px, 3.4vw, 34px); line-height: 1.1; font-weight: 640; letter-spacing: -0.01em; margin-top: 10px; max-width: 24ch; }
+      .lede { margin-top: 16px; max-width: 64ch; font-size: 17px; color: var(--ink-2); }
+
+      /* flow */
+      .flow { margin-top: 40px; display: grid; gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
+      @media (min-width: 760px) { .flow { grid-template-columns: repeat(5, 1fr); } }
+      .step { background: var(--surface); padding: 22px 18px; }
+      .step .k { font-family: var(--mono); font-size: 12px; color: var(--seal); }
+      .step .t { font-weight: 600; margin-top: 10px; }
+      .step .d { font-size: 14px; color: var(--ink-2); margin-top: 6px; }
+
+      /* features */
+      .grid { margin-top: 40px; display: grid; gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
+      @media (min-width: 700px) { .grid { grid-template-columns: repeat(3, 1fr); } }
+      .feat { background: var(--surface); padding: 26px 22px; }
+      .feat h3 { font-size: 16px; font-weight: 620; }
+      .feat p { font-size: 14px; color: var(--ink-2); margin-top: 8px; }
+      .feat .bar { width: 28px; height: 8px; background: var(--ink); margin-bottom: 14px; }
+
+      /* code */
+      .code { margin-top: 28px; border: 1px solid var(--rule); background: var(--ink); color: #e8e3d6; border-radius: 4px; overflow: hidden; }
+      .code .hd { font-family: var(--mono); font-size: 12px; color: #9a948a; padding: 10px 16px; border-bottom: 1px solid #38352c; }
+      .code pre { font-family: var(--mono); font-size: 13px; line-height: 1.7; padding: 16px; overflow-x: auto; }
+      .code .c { color: #8aa6a9; }
+      .code .s { color: #6fb3bc; }
+
+      footer { border-top: 1px solid var(--rule); padding: 40px 0 56px; }
+      .perimeter { display: flex; align-items: center; gap: 12px; font-family: var(--mono); font-size: 12px; color: var(--ink-2); }
+      .perimeter .ln { flex: 1; height: 1px; background: var(--rule); }
+      .foot-links { margin-top: 22px; display: flex; flex-wrap: wrap; gap: 18px; font-family: var(--mono); font-size: 13px; }
+      .foot-links a { color: var(--ink-2); text-decoration: none; }
+      .foot-links a:hover { color: var(--ink); }
+      @media (prefers-reduced-motion: reduce) { .tok.sealing .cover { animation: none; } }
+    </style>
+  </head>
+  <body>
+    <nav>
+      <div class="wrap row">
+        <span class="mark"><span class="sq"></span><span class="br seal">[[</span>redactgate<span class="br seal">]]</span><span class="dot"></span></span>
+        <span class="spacer"></span>
+        <a class="link" href="#how">how it works</a>
+        <a class="link" href="#benchmark">benchmark</a>
+        <a class="link" href="#start">quickstart</a>
+        <a class="btn btn-ghost" href="https://github.com/ctmakc/redactgate">GitHub ↗</a>
+      </div>
+    </nav>
+
+    <header>
+      <div class="wrap">
+        <div class="eyebrow">self-hosted · AGPL-3.0 · docker compose up</div>
+        <h1>Use any cloud LLM. Never leak a client's record.</h1>
+        <p class="sub">
+          RedactGate is a redaction firewall that sits between your staff and every cloud LLM.
+          It reversibly tokenizes sensitive data before the call leaves your perimeter, then
+          re-inflates the model's answer on the way back. Raw client data never crosses the
+          wire — and the answer is just as good.
+        </p>
+        <div class="cta">
+          <a class="btn btn-solid" href="#start">Get started</a>
+          <a class="btn btn-ghost" href="https://github.com/ctmakc/redactgate">Read the source ↗</a>
+          <span class="note">one drop-in OpenAI-compatible endpoint</span>
+        </div>
+
+        <!-- the signature: live redaction -->
+        <div class="demo" id="demo">
+          <div class="pane">
+            <div class="cap"><span class="pip"></span>what your associate writes</div>
+            <div class="msg you">
+              "Summarize the file for <span class="raw">Jane&nbsp;Okafor</span>. Her SIN is
+              <span class="raw">046&nbsp;454&nbsp;286</span> and her card on file is
+              <span class="raw">4111&nbsp;1111&nbsp;1111&nbsp;1111</span>. Email her at
+              <span class="raw">jane@acme.co</span>."
+            </div>
+          </div>
+          <div class="pane">
+            <div class="cap out"><span class="pip"></span>what the cloud LLM receives</div>
+            <div class="msg up">
+              "Summarize the file for
+              <span class="tok sealing"><span class="br">[[</span>NAME_3f<span class="br">]]</span><span class="cover"></span></span>. Her SIN is
+              <span class="tok sealing"><span class="br">[[</span>SIN_7a<span class="br">]]</span><span class="cover"></span></span> and her card on file is
+              <span class="tok sealing"><span class="br">[[</span>CC_b1<span class="br">]]</span><span class="cover"></span></span>. Email her at
+              <span class="tok sealing"><span class="br">[[</span>EMAIL_2c<span class="br">]]</span><span class="cover"></span></span>."
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="stats">
+      <div class="wrap">
+        <div class="row">
+          <div class="stat"><div class="n">8</div><div class="l">cloud + local providers, one switch</div></div>
+          <div class="stat"><div class="n">6</div><div class="l">jurisdiction packs · CA US EU UA IRCC + generic</div></div>
+          <div class="stat"><div class="n">0</div><div class="l">raw values stored or logged</div></div>
+          <div class="stat"><div class="n">AGPL</div><div class="l">open source · no telemetry</div></div>
+        </div>
+      </div>
+    </div>
+
+    <section>
+      <div class="wrap">
+        <div class="sec-eyebrow">the blocker</div>
+        <h2>Your team already pastes client data into ChatGPT.</h2>
+        <p class="lede">
+          A tax associate drops a bank statement into a chat box to get a summary. A paralegal
+          pastes a contract with names and account numbers. They have no safe alternative — so
+          the data is gone, and your compliance officer can't prove it wasn't. RedactGate is the
+          safe alternative: the model still does the work, but the raw record stays inside your
+          perimeter, and every request is logged for the audit.
+        </p>
+      </div>
+    </section>
+
+    <section id="how">
+      <div class="wrap">
+        <div class="sec-eyebrow">how it works</div>
+        <h2>Detect, seal, forward, re-inflate, audit.</h2>
+        <div class="flow">
+          <div class="step"><div class="k">01 detect</div><div class="t">Find the entities</div><div class="d">Regex jurisdiction packs + Presidio + optional LLM-NER, evasion-hardened.</div></div>
+          <div class="step"><div class="k">02 tokenize</div><div class="t">Reversibly seal them</div><div class="d">AES-256-GCM vault; the same value maps to the same placeholder all through the request.</div></div>
+          <div class="step"><div class="k">03 forward</div><div class="t">Send only the safe text</div><div class="d">To Anthropic, OpenAI, Gemini, Bedrock, Azure, or a local Ollama — your choice.</div></div>
+          <div class="step"><div class="k">04 re-inflate</div><div class="t">Restore the answer</div><div class="d">Placeholders swap back to real values — stream-safe, even mid-token.</div></div>
+          <div class="step"><div class="k">05 audit</div><div class="t">Prove it</div><div class="d">Hash-chained, append-only log — entity counts only, never raw values.</div></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="benchmark" class="stats">
+      <div class="wrap" style="padding-top: 56px; padding-bottom: 56px">
+        <div class="sec-eyebrow">published benchmark</div>
+        <h2>We measure the cost of redaction, so you don't guess.</h2>
+        <p class="lede">
+          A reproducible recall-vs-fidelity benchmark ships in the repo. Detection on the
+          jurisdiction golden sets, regex-only (higher with Presidio enabled):
+        </p>
+        <div class="row" style="margin-top: 32px; border: 1px solid var(--rule)">
+          <div class="stat"><div class="n">73–96%</div><div class="l">detection recall</div></div>
+          <div class="stat"><div class="n">90–96%</div><div class="l">precision</div></div>
+          <div class="stat"><div class="n">670+</div><div class="l">tests, CI green</div></div>
+          <div class="stat"><div class="n">13/13</div><div class="l">audit findings fixed</div></div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="sec-eyebrow">what's inside</div>
+        <h2>Built like the security appliance it is.</h2>
+        <div class="grid">
+          <div class="feat"><div class="bar"></div><h3>Reversible token vault</h3><p>AES-256-GCM, per-session keys, referential consistency — coreference survives, so the model still reasons correctly.</p></div>
+          <div class="feat"><div class="bar"></div><h3>Multi-provider gateway</h3><p>One <span class="mono">AI_PROVIDER</span> switch fans out to Anthropic, OpenAI, Gemini, Azure, Bedrock, DigitalOcean, or local Ollama. No lock-in.</p></div>
+          <div class="feat"><div class="bar"></div><h3>Jurisdiction packs</h3><p>SIN, BN, GST, SSN, EIN, IBAN, VAT, EDRPOU, UCI and more — en/uk/ru/fr aware, with real validators (Luhn, IBAN mod-97).</p></div>
+          <div class="feat"><div class="bar"></div><h3>Hash-chained audit</h3><p>Append-only, tamper-evident, zero-raw-value. The export your compliance officer hands the auditor.</p></div>
+          <div class="feat"><div class="bar"></div><h3>Stream-safe</h3><p>Re-inflation works mid-SSE-stream — a placeholder split across chunks is never emitted half-substituted.</p></div>
+          <div class="feat"><div class="bar"></div><h3>Air-gapped mode</h3><p>Regex + Presidio + Ollama = fully offline. No cloud, no key, no data leaves the building.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="start">
+      <div class="wrap">
+        <div class="sec-eyebrow">quickstart</div>
+        <h2>Running in two commands.</h2>
+        <p class="lede">Point any OpenAI client at it. The provider behind it is your config, not the caller's.</p>
+        <div class="code">
+          <div class="hd">terminal</div>
+          <pre><span class="c"># clone, set keys, and bring up postgres + redis + api + web</span>
+git clone https://github.com/ctmakc/redactgate &amp;&amp; cd redactgate
+cp .env.example .env   <span class="c"># add your provider key + generate the 3 vault keys</span>
+docker compose --profile web up -d
+
+<span class="c"># your existing OpenAI client just changes its base_url:</span>
+curl http://localhost:8088/v1/chat/completions \
+  -H <span class="s">"Authorization: Bearer $RG_KEY"</span> -H <span class="s">"Content-Type: application/json"</span> \
+  -d <span class="s">'{"model":"gpt-4o-mini","messages":[{"role":"user",
+       "content":"Summarize: SIN 193 456 787, jane@acme.co"}]}'</span>
+<span class="c"># upstream sees [[SIN_xxxx]] / [[EMAIL_xxxx]] — you get the real answer back.</span></pre>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <div class="wrap">
+        <div class="perimeter">raw values never cross this line<span class="ln"></span></div>
+        <div class="foot-links">
+          <a href="https://github.com/ctmakc/redactgate">GitHub</a>
+          <a href="https://github.com/ctmakc/redactgate/blob/main/docs/SECURITY.md">Security</a>
+          <a href="https://github.com/ctmakc/redactgate#readme">Docs</a>
+          <a href="https://github.com/ctmakc/redactgate/blob/main/LICENSE">AGPL-3.0</a>
+        </div>
+        <p class="mono" style="margin-top: 22px; font-size: 12px; color: var(--ink-2)">
+          RedactGate — a privacy firewall for cloud LLMs. Self-hosted, open source.
+        </p>
+      </div>
+    </footer>
+  </body>
+</html>

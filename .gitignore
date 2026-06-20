@@ -31,3 +31,6 @@ pgdata/
 *.swp
 .idea/
 .vscode/
+
+# internal workflow/orchestration scripts
+.build/
