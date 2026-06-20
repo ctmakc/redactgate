@@ -106,6 +106,49 @@ async def _safe_audit(
         return
 
 
+async def _safe_audit_fresh(
+    *,
+    auth: AuthContext,
+    session_id: str | None,
+    route: str,
+    provider: str,
+    entity_counts: dict[str, int],
+    blocked: bool,
+    prompt_tokens: int | None = None,
+    completion_tokens: int | None = None,
+    latency_ms: int | None = None,
+) -> None:
+    """Audit on a FRESH committed session.
+
+    The streaming SSE generator runs after the request session has been committed and
+    closed, so it cannot reuse the request-bound sink. We open our own session, write the
+    hash-chained event, and commit. If the ``session_id`` FK is not yet visible we retry
+    once unlinked so the request is still audited (auditing must never be skipped)."""
+    from app.audit import record_event
+    from app.db import session_scope
+
+    for link in (session_id, None):
+        try:
+            async with session_scope() as s:
+                await record_event(
+                    s,
+                    team_id=auth.team_id,
+                    api_key_id=getattr(auth, "api_key_id", None),
+                    session_id=link,
+                    route=route,
+                    provider=provider,
+                    entity_counts=entity_counts,
+                    blocked=blocked,
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    latency_ms=latency_ms,
+                )
+                await s.commit()
+            return
+        except Exception:  # noqa: BLE001 - try unlinked, then give up silently
+            continue
+
+
 async def _read_payload(request: Request) -> dict[str, Any]:
     try:
         body = await request.json()
@@ -200,7 +243,6 @@ async def _handle(
                 route=route,
                 provider_name=provider_name,
                 auth=auth,
-                audit_sink=audit_sink,
                 started=started,
             ),
             media_type="text/event-stream",
@@ -251,7 +293,6 @@ async def _stream_response(
     route: str,
     provider_name: str,
     auth: AuthContext,
-    audit_sink: DBAuditSink,
     started: float,
 ) -> Any:
     """Generator yielding SSE bytes; detokenizes each delta and flushes at the end.
@@ -281,8 +322,9 @@ async def _stream_response(
     finally:
         yield b"data: [DONE]\n\n"
 
-    await _safe_audit(
-        audit_sink,
+    # Fresh session: the request session is already committed/closed by the time this
+    # generator finishes streaming.
+    await _safe_audit_fresh(
         auth=auth,
         session_id=ctx.session_id,
         route=route,

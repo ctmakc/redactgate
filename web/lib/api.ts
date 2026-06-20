@@ -145,29 +145,72 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 // ── Endpoints ────────────────────────────────────────────────────────────────
 
-export function getStats(): Promise<DashboardStats> {
-  return request<DashboardStats>("/admin/stats");
+// The backend `/admin/*` endpoints return lean, list-wrapped shapes
+// (`{requests, entities_by_type:{...}, by_provider:{...}}`, `{items:[...]}`); these
+// adapters transform them into the richer view models the pages consume.
+
+interface RawStats {
+  requests: number;
+  blocked: number;
+  sessions?: number;
+  median_latency_ms?: number | null;
+  entities_by_type: Record<string, number>;
+  by_provider: Record<string, number>;
 }
 
-export function getAudit(params: {
+export async function getStats(): Promise<DashboardStats> {
+  const raw = await request<RawStats>("/admin/stats");
+  const entity_breakdown: EntityTypeCount[] = Object.entries(raw.entities_by_type ?? {})
+    .map(([entity_type, count]) => ({ entity_type, count }))
+    .sort((a, b) => b.count - a.count);
+  const provider_routing: ProviderRouting[] = Object.entries(raw.by_provider ?? {})
+    .map(([provider, count]) => ({ provider, count }))
+    .sort((a, b) => b.count - a.count);
+  const total_redactions = entity_breakdown.reduce((s, e) => s + e.count, 0);
+
+  let latest_benchmark: BenchmarkRow | null = null;
+  try {
+    latest_benchmark = (await getBenchmark())[0] ?? null;
+  } catch {
+    latest_benchmark = null;
+  }
+
+  return {
+    total_requests: raw.requests ?? 0,
+    total_redactions,
+    blocked_count: raw.blocked ?? 0,
+    sessions: raw.sessions ?? 0,
+    median_latency_ms: raw.median_latency_ms ?? null,
+    entity_breakdown,
+    provider_routing,
+    latest_benchmark,
+  };
+}
+
+export async function getAudit(params: {
   page?: number;
   pageSize?: number;
   q?: string;
   provider?: string;
   blocked?: boolean;
 } = {}): Promise<AuditPage> {
+  const pageSize = params.pageSize ?? 50;
+  const page = params.page ?? 1;
   const sp = new URLSearchParams();
-  if (params.page) sp.set("page", String(params.page));
-  if (params.pageSize) sp.set("page_size", String(params.pageSize));
+  sp.set("limit", String(pageSize));
+  sp.set("offset", String((page - 1) * pageSize));
   if (params.q) sp.set("q", params.q);
   if (params.provider) sp.set("provider", params.provider);
   if (params.blocked !== undefined) sp.set("blocked", String(params.blocked));
-  const qs = sp.toString();
-  return request<AuditPage>(`/admin/audit${qs ? `?${qs}` : ""}`);
+  const raw = await request<{ total: number; limit: number; offset: number; items: AuditEvent[] }>(
+    `/admin/audit?${sp.toString()}`,
+  );
+  return { items: raw.items ?? [], total: raw.total ?? 0, page, page_size: pageSize };
 }
 
-export function getPolicies(): Promise<Policy[]> {
-  return request<Policy[]>("/admin/policies");
+export async function getPolicies(): Promise<Policy[]> {
+  const raw = await request<{ items: Policy[] }>("/admin/policies");
+  return raw.items ?? [];
 }
 
 export function createPolicy(body: PolicyCreate): Promise<Policy> {
@@ -177,8 +220,9 @@ export function createPolicy(body: PolicyCreate): Promise<Policy> {
   });
 }
 
-export function getBenchmark(): Promise<BenchmarkRow[]> {
-  return request<BenchmarkRow[]>("/admin/benchmark");
+export async function getBenchmark(): Promise<BenchmarkRow[]> {
+  const raw = await request<{ items: BenchmarkRow[] }>("/admin/benchmark");
+  return raw.items ?? [];
 }
 
 /** Base URL used by the in-app proxy route handler. */

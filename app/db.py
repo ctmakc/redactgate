@@ -43,9 +43,19 @@ def get_sessionmaker() -> async_sessionmaker[AsyncSession]:
 
 
 async def get_session() -> AsyncIterator[AsyncSession]:
-    """FastAPI dependency yielding a transactional session."""
+    """FastAPI dependency yielding a transactional session.
+
+    Commits on a clean exit so the request's writes (redaction_session, token_map, the
+    hash-chained audit_event) actually persist; rolls back on error. Without this the
+    whole request transaction is discarded on close and nothing — including the audit
+    trail — is ever saved."""
     async with get_sessionmaker()() as session:
-        yield session
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
 
 
 @asynccontextmanager

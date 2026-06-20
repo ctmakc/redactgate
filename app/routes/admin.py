@@ -16,7 +16,7 @@ from sqlalchemy import func, select
 
 from app.config import settings
 from app.db import get_session
-from app.models import AuditEvent, EvalRun, Policy
+from app.models import AuditEvent, EvalRun, Policy, RedactionSession
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -72,9 +72,22 @@ async def stats(
                 except (TypeError, ValueError):
                     continue
 
+    sessions = (
+        await session.execute(select(func.count()).select_from(RedactionSession))
+    ).scalar_one()
+    median_latency_ms = (
+        await session.execute(
+            select(func.percentile_cont(0.5).within_group(AuditEvent.latency_ms.asc())).where(
+                AuditEvent.latency_ms.is_not(None)
+            )
+        )
+    ).scalar_one_or_none()
+
     return {
         "requests": int(total_requests),
         "blocked": int(blocked_count),
+        "sessions": int(sessions),
+        "median_latency_ms": (round(float(median_latency_ms)) if median_latency_ms is not None else None),
         "entities_by_type": entities_by_type,
         "by_provider": by_provider,
     }
