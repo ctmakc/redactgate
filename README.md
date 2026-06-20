@@ -10,6 +10,8 @@ Client (OpenAI SDK / Cursor / LibreChat)  ──base_url=http://localhost:8088/v
    →  forward sanitized payload to AI_PROVIDER  →  re-inflate response  →  hash-chained audit
 ```
 
+![RedactGate admin console](docs/dashboard.png)
+
 ## Why it exists
 
 A tax associate pasting a client's bank statement into ChatGPT has no safe alternative. RedactGate is that alternative: the raw PII never crosses the wire, redacted entities are reversibly tokenized in a local vault, **referential consistency** is preserved so answer quality survives, and every request is logged (entity *counts* only, never values) for a compliance officer to defend in an audit.
