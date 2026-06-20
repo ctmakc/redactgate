@@ -1,6 +1,6 @@
 # RedactGate
 
-> A self-hosted PII / financial-redaction firewall that lets regulated businesses use **any** cloud LLM without ever leaking raw client data.
+> **Live: [redactgate.pages.dev](https://redactgate.pages.dev)** · A self-hosted PII / financial-redaction firewall that lets regulated businesses use **any** cloud LLM without ever leaking raw client data.
 
 RedactGate sits between your staff and every cloud LLM. It strips, **reversibly tokenizes**, and audits every sensitive entity before the API call leaves your perimeter — then re-inflates the model's answer on the way back. One drop-in OpenAI-compatible endpoint. AGPL-3.0. `docker compose up`.
 
