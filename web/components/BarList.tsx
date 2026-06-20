@@ -1,39 +1,36 @@
-/** Lightweight horizontal bar list — pure CSS, no chart dependency. */
+import type { CSSProperties } from "react";
+
+/** Horizontal redaction-bar list — carbon bars that wipe open. Pure CSS, no chart dep. */
 export function BarList({
   items,
-  emptyLabel = "No data yet.",
-  accent = "bg-brand-500",
+  emptyLabel = "no data yet.",
 }: {
   items: { label: string; value: number; mono?: boolean }[];
   emptyLabel?: string;
   accent?: string;
 }) {
   if (items.length === 0) {
-    return <p className="py-6 text-sm text-slate-400">{emptyLabel}</p>;
+    return <p className="py-4 font-mono text-small text-graphite">{emptyLabel}</p>;
   }
   const max = Math.max(...items.map((i) => i.value), 1);
   return (
     <ul className="flex flex-col gap-3">
-      {items.map((item) => {
-        const w = Math.max(2, Math.round((item.value / max) * 100));
+      {items.map((item, i) => {
+        const w = Math.max(12, Math.round((item.value / max) * 220));
         return (
-          <li key={item.label}>
-            <div className="mb-1 flex items-center justify-between text-sm">
+          <li key={item.label} className="flex items-center gap-3">
+            <span className="w-24 shrink-0 truncate font-mono text-small text-carbon">
+              {item.label}
+            </span>
+            <span className="redbar" style={{ width: `${w}px` }}>
               <span
-                className={`text-slate-600 ${item.mono ? "font-mono text-[0.8rem]" : ""}`}
-              >
-                {item.label}
-              </span>
-              <span className="font-medium tabular-nums text-slate-900">
-                {item.value.toLocaleString("en-US")}
-              </span>
-            </div>
-            <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
-              <div
-                className={`h-full rounded-full ${accent}`}
-                style={{ width: `${w}%` }}
+                className="redbar-fill"
+                style={{ animationDelay: `${i * 60}ms` } as CSSProperties}
               />
-            </div>
+            </span>
+            <span className="ml-auto font-mono text-small tabular-nums text-carbon">
+              {item.value.toLocaleString("en-US")}
+            </span>
           </li>
         );
       })}

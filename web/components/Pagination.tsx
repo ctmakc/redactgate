@@ -22,7 +22,7 @@ export function Pagination({
   const to = Math.min(total, page * pageSize);
 
   return (
-    <div className="mt-4 flex items-center justify-between text-sm text-slate-500">
+    <div className="mt-4 flex items-center justify-between text-sm text-graphite">
       <span>
         {from}–{to} of {total.toLocaleString("en-US")}
       </span>

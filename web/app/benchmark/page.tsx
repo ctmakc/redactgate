@@ -8,14 +8,14 @@ export const dynamic = "force-dynamic";
 
 function ScoreCell({ value }: { value: number | null }) {
   if (value === null || value === undefined) {
-    return <span className="text-slate-400">—</span>;
+    return <span className="text-graphite">—</span>;
   }
   const tone =
     value >= 0.9
-      ? "text-emerald-600"
+      ? "text-seal"
       : value >= 0.75
-        ? "text-amber-600"
-        : "text-rose-600";
+        ? "text-vermillion"
+        : "text-vermillion";
   return <span className={`font-semibold tabular-nums ${tone}`}>{pct(value)}</span>;
 }
 
@@ -37,10 +37,10 @@ export default async function BenchmarkPage() {
 
       {offline ? <OfflineBanner detail={offline} /> : null}
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-card">
+      <div className="overflow-hidden rounded-xl border border-rule bg-leaf shadow-card">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse">
-            <thead className="border-b border-slate-200 bg-slate-50">
+            <thead className="border-b border-rule bg-vellum">
               <tr>
                 <th className="th">Provider</th>
                 <th className="th">Golden set / pack</th>
@@ -50,18 +50,18 @@ export default async function BenchmarkPage() {
                 <th className="th">Run</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-rule/60">
               {rows.length === 0 ? (
                 <tr>
-                  <td className="td text-slate-400" colSpan={6}>
+                  <td className="td text-graphite" colSpan={6}>
                     No benchmark runs recorded yet. Trigger the eval harness to
                     populate this scorecard.
                   </td>
                 </tr>
               ) : (
                 rows.map((r) => (
-                  <tr key={r.id} className="hover:bg-slate-50/60">
-                    <td className="td font-medium text-slate-900">
+                  <tr key={r.id} className="hover:bg-vellum/60">
+                    <td className="td font-medium text-carbon">
                       {r.provider}
                     </td>
                     <td className="td">
@@ -76,7 +76,7 @@ export default async function BenchmarkPage() {
                     <td className="td">
                       <ScoreCell value={r.answer_fidelity} />
                     </td>
-                    <td className="td whitespace-nowrap text-slate-500">
+                    <td className="td whitespace-nowrap text-graphite">
                       {dateTime(r.created_at)}
                     </td>
                   </tr>
@@ -87,7 +87,7 @@ export default async function BenchmarkPage() {
         </div>
       </div>
 
-      <p className="mt-4 text-xs text-slate-400">
+      <p className="mt-4 text-xs text-graphite">
         Recall = labeled entities detected · Precision = detections that were
         correct · Answer fidelity = semantic equivalence of the redacted-roundtrip
         answer to the raw answer (LLM-judge, tolerant).

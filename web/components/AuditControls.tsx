@@ -30,10 +30,10 @@ export function AuditControls() {
   return (
     <form
       onSubmit={apply}
-      className="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-card"
+      className="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-rule bg-leaf p-4 shadow-card"
     >
       <label className="flex-1 min-w-[180px]">
-        <span className="mb-1 block text-xs font-medium text-slate-500">
+        <span className="mb-1 block text-xs font-medium text-graphite">
           Search route / provider
         </span>
         <input
@@ -44,7 +44,7 @@ export function AuditControls() {
         />
       </label>
       <label className="min-w-[140px]">
-        <span className="mb-1 block text-xs font-medium text-slate-500">
+        <span className="mb-1 block text-xs font-medium text-graphite">
           Provider
         </span>
         <input
@@ -55,7 +55,7 @@ export function AuditControls() {
         />
       </label>
       <label className="min-w-[120px]">
-        <span className="mb-1 block text-xs font-medium text-slate-500">
+        <span className="mb-1 block text-xs font-medium text-graphite">
           Blocked
         </span>
         <select

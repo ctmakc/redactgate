@@ -8,19 +8,19 @@ import { dateTime } from "@/lib/format";
 export const dynamic = "force-dynamic";
 
 const MODE_STYLES: Record<string, string> = {
-  tokenize: "bg-brand-50 text-brand-700",
-  mask: "bg-amber-100 text-amber-700",
-  hard_block: "bg-rose-100 text-rose-700",
+  tokenize: "bg-leaf text-seal",
+  mask: "bg-vermillion/10 text-vermillion",
+  hard_block: "bg-vermillion/10 text-vermillion",
 };
 
 function Chips({ items, empty }: { items: string[]; empty: string }) {
   if (items.length === 0) {
-    return <span className="text-xs text-slate-400">{empty}</span>;
+    return <span className="text-xs text-graphite">{empty}</span>;
   }
   return (
     <div className="flex flex-wrap gap-1.5">
       {items.map((x) => (
-        <span key={x} className="badge bg-slate-100 font-mono text-slate-600">
+        <span key={x} className="badge bg-vellum font-mono text-ink-2">
           {x}
         </span>
       ))}
@@ -48,9 +48,9 @@ export default async function PoliciesPage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-card">
+          <div className="overflow-hidden rounded-xl border border-rule bg-leaf shadow-card">
             <table className="w-full border-collapse">
-              <thead className="border-b border-slate-200 bg-slate-50">
+              <thead className="border-b border-rule bg-vellum">
                 <tr>
                   <th className="th">Name</th>
                   <th className="th">Mode</th>
@@ -59,20 +59,20 @@ export default async function PoliciesPage() {
                   <th className="th">Created</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-rule/60">
                 {policies.length === 0 ? (
                   <tr>
-                    <td className="td text-slate-400" colSpan={5}>
+                    <td className="td text-graphite" colSpan={5}>
                       No policies yet. Create one on the right.
                     </td>
                   </tr>
                 ) : (
                   policies.map((p) => (
-                    <tr key={p.id} className="hover:bg-slate-50/60">
-                      <td className="td font-medium text-slate-900">{p.name}</td>
+                    <tr key={p.id} className="hover:bg-vellum/60">
+                      <td className="td font-medium text-carbon">{p.name}</td>
                       <td className="td">
                         <span
-                          className={`badge ${MODE_STYLES[p.mode] ?? "bg-slate-100 text-slate-600"}`}
+                          className={`badge ${MODE_STYLES[p.mode] ?? "bg-vellum text-ink-2"}`}
                         >
                           {p.mode}
                         </span>
@@ -83,7 +83,7 @@ export default async function PoliciesPage() {
                       <td className="td">
                         <Chips items={p.allowed_providers} empty="all" />
                       </td>
-                      <td className="td whitespace-nowrap text-slate-500">
+                      <td className="td whitespace-nowrap text-graphite">
                         {dateTime(p.created_at)}
                       </td>
                     </tr>

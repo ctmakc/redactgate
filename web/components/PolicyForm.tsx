@@ -24,10 +24,10 @@ export function PolicyForm() {
 
   return (
     <form action={action} className="card flex flex-col gap-4">
-      <h2 className="text-sm font-semibold text-slate-900">New policy</h2>
+      <h2 className="text-sm font-semibold text-carbon">New policy</h2>
 
       <label className="block">
-        <span className="mb-1 block text-xs font-medium text-slate-500">
+        <span className="mb-1 block text-xs font-medium text-graphite">
           Name
         </span>
         <input
@@ -39,7 +39,7 @@ export function PolicyForm() {
       </label>
 
       <label className="block">
-        <span className="mb-1 block text-xs font-medium text-slate-500">
+        <span className="mb-1 block text-xs font-medium text-graphite">
           Mode
         </span>
         <select name="mode" className="input" defaultValue="tokenize">
@@ -50,9 +50,9 @@ export function PolicyForm() {
       </label>
 
       <label className="block">
-        <span className="mb-1 block text-xs font-medium text-slate-500">
+        <span className="mb-1 block text-xs font-medium text-graphite">
           Blocked entity types{" "}
-          <span className="text-slate-400">(comma-separated)</span>
+          <span className="text-graphite">(comma-separated)</span>
         </span>
         <input
           name="blocked_types"
@@ -62,9 +62,9 @@ export function PolicyForm() {
       </label>
 
       <label className="block">
-        <span className="mb-1 block text-xs font-medium text-slate-500">
+        <span className="mb-1 block text-xs font-medium text-graphite">
           Allowed providers{" "}
-          <span className="text-slate-400">(comma-separated, empty = all)</span>
+          <span className="text-graphite">(comma-separated, empty = all)</span>
         </span>
         <input
           name="allowed_providers"
@@ -76,10 +76,10 @@ export function PolicyForm() {
       <div className="flex items-center gap-3">
         <SubmitButton />
         {state.ok ? (
-          <span className="text-sm text-emerald-600">Policy created.</span>
+          <span className="text-sm text-seal">Policy created.</span>
         ) : null}
         {state.error ? (
-          <span className="text-sm text-rose-600">{state.error}</span>
+          <span className="text-sm text-vermillion">{state.error}</span>
         ) : null}
       </div>
     </form>

@@ -4,7 +4,7 @@ import { sumCounts } from "@/lib/format";
 export function EntityCounts({ counts }: { counts: Record<string, number> }) {
   const entries = Object.entries(counts ?? {}).sort((a, b) => b[1] - a[1]);
   if (entries.length === 0) {
-    return <span className="text-xs text-slate-400">none</span>;
+    return <span className="text-xs text-graphite">none</span>;
   }
   const total = sumCounts(counts);
   return (
@@ -12,14 +12,14 @@ export function EntityCounts({ counts }: { counts: Record<string, number> }) {
       {entries.map(([type, n]) => (
         <span
           key={type}
-          className="badge bg-slate-100 font-mono text-slate-600"
+          className="badge bg-vellum font-mono text-ink-2"
           title={`${n} × ${type}`}
         >
           {type}
-          <span className="ml-1 text-slate-400">×{n}</span>
+          <span className="ml-1 text-graphite">×{n}</span>
         </span>
       ))}
-      <span className="ml-1 text-xs text-slate-400">({total} total)</span>
+      <span className="ml-1 text-xs text-graphite">({total} total)</span>
     </div>
   );
 }

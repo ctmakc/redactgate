@@ -2,9 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── REDACTION FIELD ───────────────────────────────────────────────────────────
+   Warm office-stock paper, carbon ink, seal-cyan signal, vermillion stamp.
+   Hairline-ruled, flat. The redaction bar is the material; the token is the atom. */
+
 :root {
-  --bg: #f8fafc;
-  --panel: #ffffff;
+  --bg: #ece7dd;
+  --surface: #f6f2ea;
+  --ink: #16140f;
+  --ink-2: #4a463c;
+  --rule: #c9c2b2;
+  --seal: #1b6e78;
+  --vermillion: #a8331f;
 }
 
 html,
@@ -15,65 +24,254 @@ body {
 
 body {
   background: var(--bg);
-  color: #0f172a;
+  color: var(--ink);
+  font-feature-settings: "tnum" 1;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
+@layer base {
+  ::selection {
+    background: #1b6e7833;
+  }
+  /* visible keyboard focus, seal-cyan inset, no glow */
+  a:focus-visible,
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  [tabindex]:focus-visible {
+    outline: 2px solid var(--seal);
+    outline-offset: 1px;
+  }
+}
+
 @layer components {
-  .card {
-    @apply rounded-xl border border-slate-200 bg-white p-5 shadow-card;
+  /* Ruled records-paper surface — flat, with a single 1px brushed top-highlight. */
+  .panel {
+    @apply rounded border border-rule bg-leaf shadow-panel;
   }
 
+  /* Section eyebrow — sentence-case mono, like printer output (NOT uppercase-tracked). */
+  .eyebrow {
+    @apply font-mono text-micro font-medium text-graphite;
+    letter-spacing: 0;
+  }
+
+  /* Stat tile: big tabular number sitting ON a rule baseline (an underscored form field). */
   .stat-label {
-    @apply text-xs font-medium uppercase tracking-wide text-slate-500;
+    @apply font-mono text-micro font-medium text-graphite;
   }
-
   .stat-value {
-    @apply mt-1 text-3xl font-semibold tabular-nums text-slate-900;
+    @apply mt-2 pb-1 font-sans text-[28px] font-semibold leading-none tabular-nums text-carbon;
+    border-bottom: 1px solid var(--rule);
+  }
+  .stat-hint {
+    @apply mt-2 font-mono text-micro text-graphite;
   }
 
+  /* Nav: active marked by a 2px seal-cyan left tick + carbon text — a ledger checkmark. */
   .nav-link {
-    @apply flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-600
-           transition hover:bg-slate-100 hover:text-slate-900;
+    @apply relative flex items-center gap-2.5 py-1.5 pl-4 pr-3 font-mono text-small text-graphite
+           transition-colors hover:text-carbon;
   }
-
   .nav-link-active {
-    @apply bg-brand-50 text-brand-700 hover:bg-brand-50 hover:text-brand-700;
+    @apply text-carbon;
+  }
+  .nav-link-active::before {
+    content: "";
+    @apply absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 bg-seal;
   }
 
+  /* The TOKEN CHIP — the hero atom. [[SIN_7f3a]] in mono, brackets in seal, body in carbon. */
   .token {
-    @apply rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[0.8rem] text-brand-700;
+    @apply rounded-sm border border-rule bg-leaf px-1.5 py-0.5 font-mono text-[12.5px] text-carbon;
+  }
+  .token .br {
+    @apply text-seal;
   }
 
+  /* STAMP — replaces pastel badges. Outline or solid ink tags, mono, hard 3px corners. */
+  .stamp {
+    @apply inline-flex items-center rounded-sm px-2 py-0.5 font-mono text-[11px] font-medium uppercase;
+    letter-spacing: 0.02em;
+  }
+  .stamp-outline {
+    @apply stamp border border-carbon/40 text-carbon;
+  }
+  .stamp-seal {
+    @apply stamp border border-seal/50 text-seal;
+  }
+  /* the one playful break: a real ink stamp, rotated -1.5deg */
+  .stamp-block {
+    @apply stamp bg-vermillion text-leaf;
+    transform: rotate(-1.5deg);
+  }
+
+  /* Records-ledger table: horizontal hairline rules ONLY, no vertical gridlines, no zebra. */
+  .ledger {
+    @apply w-full border-collapse;
+  }
+  .ledger thead th {
+    @apply border-b border-rule px-3 py-2 text-left font-mono text-micro font-medium text-graphite;
+    letter-spacing: 0;
+  }
+  .ledger tbody td {
+    @apply border-b border-rule/70 px-3 py-3 align-middle text-small text-ink-2;
+    height: 44px;
+  }
+  .ledger tbody tr:hover td {
+    background: #16140f08;
+  }
+  .mono-data {
+    @apply font-mono text-small tabular-nums text-carbon;
+  }
+
+  /* Back-compat aliases so existing page markup adopts the new language. */
+  .card {
+    @apply panel p-5;
+  }
   .badge {
-    @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium;
+    @apply stamp;
   }
-
   .th {
-    @apply px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500;
+    @apply border-b border-rule px-3 py-2.5 text-left font-mono text-micro font-medium text-graphite;
+    letter-spacing: 0;
   }
-
   .td {
-    @apply px-4 py-3 text-sm text-slate-700 align-top;
+    @apply border-b border-rule/70 px-3 py-3 align-middle font-mono text-small text-ink-2;
   }
 
   .input {
-    @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm
-           text-slate-900 shadow-sm outline-none transition
-           focus:border-brand-500 focus:ring-2 focus:ring-brand-100;
+    @apply w-full rounded border border-rule bg-leaf px-3 py-2 font-mono text-small text-carbon
+           outline-none transition focus:border-seal;
   }
-
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm
+    @apply inline-flex items-center justify-center gap-2 rounded px-4 py-2 font-mono text-small
            font-medium transition;
   }
-
   .btn-primary {
-    @apply btn bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-50;
+    @apply btn bg-carbon text-leaf hover:bg-carbon/90 disabled:opacity-50;
   }
-
   .btn-ghost {
-    @apply btn border border-slate-300 bg-white text-slate-700 hover:bg-slate-50;
+    @apply btn border border-rule bg-leaf text-carbon hover:bg-vellum;
+  }
+}
+
+@layer utilities {
+  .text-ink-2 {
+    color: var(--ink-2);
+  }
+  /* The perimeter line: "raw values never cross this line" terminating in a hairline. */
+  .perimeter::after {
+    content: "";
+    @apply ml-3 inline-block h-px flex-1 align-middle;
+    background: var(--rule);
+  }
+}
+
+/* The signature redaction reveal — a carbon bar covers the token, then wipes left→right
+   to expose it on load. RESTING STATE IS REVEALED (default clip-path hides the cover), so
+   the page is correct even before/without the animation; the animation is enhancement. */
+.reveal {
+  position: relative;
+}
+.reveal .seal-cover {
+  position: absolute;
+  inset: 0;
+  background: var(--ink);
+  clip-path: inset(0 0 0 100%); /* default + resting: token revealed (screenshot-safe) */
+  transition: clip-path 200ms cubic-bezier(0.2, 0, 0, 1);
+}
+.token.reveal:hover .seal-cover {
+  /* re-seal on hover: 'reversible' — the bar slides back over the value */
+  clip-path: inset(0 0 0 0);
+}
+@keyframes cover-wipe {
+  from {
+    clip-path: inset(0 0 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 100%);
+  }
+}
+@keyframes cover-reseal {
+  from {
+    clip-path: inset(0 0 0 100%);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal .seal-cover {
+    display: none;
+  }
+}
+
+/* The redaction ledger bar — a solid carbon rectangle (0 radius) that wipes open. */
+.redbar {
+  position: relative;
+  height: 14px;
+  min-width: 14px;
+  max-width: 280px;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.redbar-fill {
+  position: absolute;
+  inset: 0;
+  background: var(--ink);
+  clip-path: inset(0 0 0 0); /* default: full bar (resting/screenshot-safe) */
+  animation: bar-unseal 360ms cubic-bezier(0.2, 0, 0, 1) forwards;
+}
+.redbar:hover .redbar-fill {
+  background: var(--seal);
+}
+@keyframes bar-unseal {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+/* Inline redaction pip used in the audit table (a tiny struck bar + count). */
+.pip {
+  @apply inline-flex items-center gap-1 font-mono text-[11px] tabular-nums text-graphite;
+}
+.pip::before {
+  content: "";
+  @apply inline-block h-2.5 w-3.5 bg-carbon align-middle;
+}
+
+/* The custody seam — a continuous hash-chain thread with a link node per audit row,
+   proving append-only chain-of-custody down the left gutter of the ledger. */
+.seam {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  transform: translateX(-50%);
+  background: rgba(27, 110, 120, 0.45);
+}
+.seam::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  transform: translate(-50%, -50%) rotate(45deg);
+  background: var(--surface);
+  border: 1px solid var(--seal);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .redbar-fill {
+    animation: none;
+    clip-path: inset(0 0 0 0);
   }
 }

@@ -54,11 +54,12 @@ export default async function AuditPageRoute({
 
       <AuditControls />
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-card">
+      <div className="overflow-hidden rounded-xl border border-rule bg-leaf shadow-card">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse">
-            <thead className="border-b border-slate-200 bg-slate-50">
+            <thead className="border-b border-rule bg-vellum">
               <tr>
+                <th className="th w-5 border-l-2 border-l-seal/55 px-0" aria-label="chain" />
                 <th className="th">Time</th>
                 <th className="th">Route</th>
                 <th className="th">Provider</th>
@@ -68,17 +69,21 @@ export default async function AuditPageRoute({
                 <th className="th">Latency</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-rule/60">
               {data.items.length === 0 ? (
                 <tr>
-                  <td className="td text-slate-400" colSpan={7}>
+                  <td className="td text-graphite" colSpan={8}>
                     No audit events match this view.
                   </td>
                 </tr>
               ) : (
                 data.items.map((ev) => (
-                  <tr key={ev.id} className="hover:bg-slate-50/60">
-                    <td className="td whitespace-nowrap text-slate-500">
+                  <tr key={ev.id} className="hover:bg-vellum/60">
+                    <td
+                      className="w-5 border-b border-rule/70 border-l-2 border-l-seal/55 p-0"
+                      aria-hidden
+                    />
+                    <td className="td whitespace-nowrap text-graphite">
                       {dateTime(ev.created_at)}
                     </td>
                     <td className="td">
@@ -90,16 +95,16 @@ export default async function AuditPageRoute({
                     </td>
                     <td className="td">
                       {ev.blocked ? (
-                        <span className="badge bg-rose-100 text-rose-700">
+                        <span className="badge bg-vermillion/10 text-vermillion">
                           blocked
                         </span>
                       ) : (
-                        <span className="badge bg-emerald-100 text-emerald-700">
+                        <span className="badge bg-seal/10 text-seal">
                           allowed
                         </span>
                       )}
                     </td>
-                    <td className="td whitespace-nowrap tabular-nums text-slate-500">
+                    <td className="td whitespace-nowrap tabular-nums text-graphite">
                       {ev.prompt_tokens ?? "—"} / {ev.completion_tokens ?? "—"}
                     </td>
                     <td className="td whitespace-nowrap tabular-nums">
