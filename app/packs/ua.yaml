@@ -1,0 +1,29 @@
+code: UA
+name: Ukraine (tax + banking)
+entity_types:
+  - IBAN_UA
+  - IPN
+  - EDRPOU
+patterns:
+  - type: IBAN_UA
+    # Ukrainian IBAN: UA + 2 check digits + 25 alphanumerics (29 chars total). mod-97
+    # validated. Cues: "IBAN", "рахунок", "розрахунковий рахунок", "р/р".
+    regex: '\bUA\d{2}[ ]?(?:[A-Z0-9]{4}[ ]?){5}[A-Z0-9]{5}\b'
+    validator: iban_mod97
+    description: 'Ukrainian IBAN (UA, 29 chars) / розрахунковий рахунок'
+  - type: IPN
+    # ІПН / РНОКПП — individual tax number, exactly 10 digits. Anchored by a keyword cue to
+    # avoid colliding with bare 10-digit phone/order numbers. Only the digit run (named
+    # group `value`) is redacted. Cues: "ІПН", "ИНН", "РНОКПП", "tax number".
+    regex: '(?:ІПН|IPN|ИНН|РНОКПП|РНУКПН)[ :№#]*(?P<value>\d{10})\b'
+    flags: IGNORECASE
+    validator: ipn_check
+    description: 'Ukrainian individual tax number (ІПН / РНОКПП)'
+  - type: EDRPOU
+    # ЄДРПОУ — legal-entity registration code, exactly 8 digits. Anchored by a keyword cue
+    # because a bare 8-digit run is ambiguous. Only the digit run is redacted. Cues:
+    # "ЄДРПОУ", "ЕДРПОУ", "EDRPOU", "код".
+    regex: '(?:ЄДРПОУ|ЕДРПОУ|EDRPOU)[ :№#]*(?P<value>\d{8})\b'
+    flags: IGNORECASE
+    validator: edrpou_check
+    description: 'Ukrainian legal-entity code (ЄДРПОУ / EDRPOU)'

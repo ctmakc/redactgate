@@ -1,0 +1,32 @@
+code: CA
+name: Canada (federal + Quebec)
+entity_types:
+  - SIN
+  - BUSINESS_NUMBER
+  - GST_HST
+  - NEQ
+patterns:
+  - type: SIN
+    # Social Insurance Number — 9 digits, optionally grouped 3-3-3 with spaces or hyphens.
+    # Luhn-validated (sin_check) to suppress false positives. Cues: "SIN", "NAS",
+    # "numero d'assurance sociale", "соцстрахування".
+    regex: '\b\d{3}[ -]?\d{3}[ -]?\d{3}\b'
+    validator: sin_check
+    description: "Canadian SIN / NAS (numero d'assurance sociale)"
+  - type: BUSINESS_NUMBER
+    # CRA Business Number: 9-digit BN, optionally followed by a 2-letter program
+    # identifier and a 4-digit reference (e.g. 123456789RC0001, 123456789 RT 0001).
+    regex: '\b\d{9}[ ]?(?:R[CTPMZ]|RC|RP|RT|RM|RZ)[ ]?\d{4}\b'
+    description: "CRA Business Number with program account (RC/RP/RT/RM/RZ)"
+  - type: GST_HST
+    # GST/HST account number: 9-digit BN + RT + 4-digit reference. Cues: "GST", "HST",
+    # "TPS", "TVH", "numero de TPS".
+    regex: '\b\d{9}[ ]?RT[ ]?\d{4}\b'
+    description: 'GST/HST (TPS/TVH) registration number'
+  - type: NEQ
+    # Quebec enterprise number (Numero d'entreprise du Quebec): 10 digits, often
+    # grouped 4-3-3. Anchored by NEQ keyword to limit false positives on bare 10-digit
+    # runs; only the number itself (named group `value`) is redacted.
+    regex: '\bNEQ[ :#]*(?P<value>\d{4}[ -]?\d{3}[ -]?\d{3})\b'
+    flags: IGNORECASE
+    description: "Quebec NEQ (Numero d'entreprise du Quebec)"

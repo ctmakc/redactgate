@@ -31,7 +31,7 @@ class EntitySpan:
     def length(self) -> int:
         return self.end - self.start
 
-    def overlaps(self, other: "EntitySpan") -> bool:
+    def overlaps(self, other: EntitySpan) -> bool:
         return self.start < other.end and other.start < self.end
 
 
@@ -49,7 +49,7 @@ class DetectionResult:
         return out
 
 
-class PolicyMode(str, Enum):
+class PolicyMode(str, Enum):  # noqa: UP042  (str+Enum is intentional; StrEnum changes str())
     TOKENIZE = "tokenize"
     MASK = "mask"
     HARD_BLOCK = "hard_block"

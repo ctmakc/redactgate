@@ -1,0 +1,26 @@
+code: US
+name: United States (federal)
+entity_types:
+  - SSN
+  - EIN
+  - ITIN
+patterns:
+  - type: ITIN
+    # Individual Taxpayer Identification Number: 9XX-7X-XXXX (always starts with 9, the
+    # group digit falls in IRS-allocated ranges). Checked BEFORE SSN so a 9-leading number
+    # is classified as ITIN, not SSN. Cues: "ITIN", "taxpayer ID".
+    regex: '\b9\d{2}[ -]?\d{2}[ -]?\d{4}\b'
+    validator: itin_check
+    description: 'US ITIN (Individual Taxpayer Identification Number)'
+  - type: SSN
+    # Social Security Number: 3-2-4 grouping. Validated to exclude never-issued ranges
+    # (area 000/666/9xx, group 00, serial 0000). Cues: "SSN", "social security".
+    regex: '\b\d{3}-\d{2}-\d{4}\b'
+    validator: ssn_check
+    description: 'US Social Security Number (SSN)'
+  - type: EIN
+    # Employer Identification Number: 2-7 grouping (NN-NNNNNNN). Validated against valid
+    # IRS campus prefixes. Cues: "EIN", "employer ID", "FEIN", "tax ID".
+    regex: '\b\d{2}-\d{7}\b'
+    validator: ein_check
+    description: 'US Employer Identification Number (EIN/FEIN)'

@@ -48,8 +48,8 @@ async def lifespan(app: FastAPI):
             log.warning("default api key bootstrap skipped: %s", exc)
 
         try:
-            from app.redaction.packs_loader import sync_packs_to_db
             from app.db import session_scope as _ss
+            from app.redaction.packs_loader import sync_packs_to_db
 
             async with _ss() as s:
                 await sync_packs_to_db(s)

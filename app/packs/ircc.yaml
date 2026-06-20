@@ -1,0 +1,21 @@
+code: IRCC
+name: Immigration, Refugees and Citizenship Canada
+entity_types:
+  - UCI
+  - APPLICATION_NUMBER
+patterns:
+  - type: UCI
+    # Unique Client Identifier (a.k.a. client ID): 8 to 10 digits, usually grouped
+    # 4-4 or 2-4-4. Anchored by a UCI/client-ID keyword to avoid colliding with bare
+    # numeric runs; only the number itself (named group `value`) is redacted. Cues:
+    # "UCI", "client ID", "identificateur unique de client", "ідентифікатор клієнта".
+    regex: '(?:UCI|Client ID|Client Identifier)[ :#]*(?P<value>\d{4}[ -]?\d{4,6})\b'
+    flags: IGNORECASE
+    validator: uci_check
+    description: 'IRCC Unique Client Identifier (UCI / identificateur unique de client)'
+  - type: APPLICATION_NUMBER
+    # IRCC application / case number: a letter prefix (E/F/V/W/X for the line of business)
+    # followed by 9 or 10 digits, e.g. E001234567, W123456789. Cues: "application number",
+    # "numero de demande", "case number".
+    regex: '\b[EFVWX]\d{9,10}\b'
+    description: 'IRCC application / case number (E/F/V/W/X + 9-10 digits)'

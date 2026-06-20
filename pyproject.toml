@@ -58,4 +58,6 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
-ignore = ["E501"]
+# E501: line length handled by formatter. B008: FastAPI uses Depends()/Body() as default
+# args by design — the canonical, recommended pattern.
+ignore = ["E501", "B008"]

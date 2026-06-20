@@ -1,0 +1,348 @@
+"""The OpenAI-compatible proxy surface.
+
+``POST /v1/chat/completions`` and ``POST /v1/responses`` run the full firewall:
+detect → policy → tokenize → upstream call → re-inflate → audit. ``GET /v1/models`` lists
+the configured providers' default models.
+
+SECURITY: audit events carry entity *type counts*, token usage and latency only — never a
+raw entity value, and never the redacted/clear payload text.
+"""
+
+from __future__ import annotations
+
+import json
+import time
+from typing import TYPE_CHECKING, Any
+
+from fastapi import APIRouter, Depends, Request
+from fastapi.responses import JSONResponse, StreamingResponse
+
+from app.config import settings
+from app.deps import (
+    DBAuditSink,
+    build_vault,
+    get_active_provider,
+    get_audit_sink,
+    get_auth,
+    get_detector,
+    get_policy_decision,
+    get_token_store,
+)
+from app.gateway.base import ProviderError
+from app.redaction.pipeline import PipelineContext, build_pipeline
+from app.schemas.openai import (
+    HardBlockError,
+    error_body,
+    extract_delta_text,
+    set_delta_text,
+)
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from app.auth import AuthContext
+    from app.gateway.base import Provider
+    from app.redaction.store import TokenStore
+    from app.schemas.entities import PolicyDecision
+
+router = APIRouter()
+
+# Module-level dependency singletons (keeps the FastAPI `Depends` idiom; ruff B008-clean).
+_StoreDep = Depends(get_token_store)
+_AuditDep = Depends(get_audit_sink)
+_PolicyDep = Depends(get_policy_decision)
+_ProviderDep = Depends(get_active_provider)
+_AuthDep = Depends(get_auth)
+
+
+# ── Helpers ──────────────────────────────────────────────────────────────────────
+
+
+def _provider_allowed(decision: PolicyDecision, provider_name: str) -> bool:
+    """Empty allow-list means *all providers permitted*; otherwise must be listed."""
+    allowed = getattr(decision, "allowed_providers", None) or []
+    return not allowed or provider_name in allowed
+
+
+def _provider_name(provider: Provider) -> str:
+    return getattr(provider, "name", None) or settings.ai_provider
+
+
+def _usage(completion: dict[str, Any]) -> tuple[int | None, int | None]:
+    usage = completion.get("usage") if isinstance(completion, dict) else None
+    if not isinstance(usage, dict):
+        return None, None
+    return usage.get("prompt_tokens"), usage.get("completion_tokens")
+
+
+async def _safe_audit(
+    audit_sink: DBAuditSink | None,
+    *,
+    auth: AuthContext,
+    session_id: str | None,
+    route: str,
+    provider: str,
+    entity_counts: dict[str, int],
+    blocked: bool,
+    prompt_tokens: int | None = None,
+    completion_tokens: int | None = None,
+    latency_ms: int | None = None,
+) -> None:
+    """Best-effort audit write — auditing must never break the proxy response path."""
+    if audit_sink is None:
+        return
+    try:
+        await audit_sink.record(
+            team_id=auth.team_id,
+            api_key_id=getattr(auth, "api_key_id", None),
+            session_id=session_id,
+            route=route,
+            provider=provider,
+            entity_counts=entity_counts,
+            blocked=blocked,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            latency_ms=latency_ms,
+        )
+    except Exception:  # noqa: BLE001 - audit failure is logged upstream, never fatal here
+        return
+
+
+async def _read_payload(request: Request) -> dict[str, Any]:
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001
+        body = None
+    if not isinstance(body, dict):
+        raise ProviderError("request body must be a JSON object", status_code=400)
+    return body
+
+
+def _sse_chunk(chunk: dict[str, Any]) -> bytes:
+    return f"data: {json.dumps(chunk, separators=(',', ':'))}\n\n".encode()
+
+
+# ── Core handler ─────────────────────────────────────────────────────────────────
+
+
+async def _handle(
+    request: Request,
+    route: str,
+    *,
+    store: TokenStore,
+    audit_sink: DBAuditSink,
+    decision: PolicyDecision,
+    provider: Provider,
+    auth: AuthContext,
+) -> Any:
+    provider_name = _provider_name(provider)
+
+    # Policy provider allow-list gate (before any upstream work).
+    if not _provider_allowed(decision, provider_name):
+        return JSONResponse(
+            status_code=400,
+            content=error_body(
+                f"provider '{provider_name}' is not permitted by policy",
+                code="provider_not_allowed",
+            ),
+        )
+
+    try:
+        payload = await _read_payload(request)
+    except ProviderError as exc:
+        return JSONResponse(status_code=exc.status_code, content=error_body(str(exc)))
+
+    vault = build_vault(store, cfg=settings)
+    detector = get_detector(settings)
+    pipeline = build_pipeline(
+        store=store,
+        vault=vault,
+        detector=detector,
+        audit_sink=audit_sink,
+        decision=decision,
+        auth=auth,
+        provider=provider,
+    )
+
+    started = time.perf_counter()
+
+    # ── Sanitize (may hard-block) ──
+    try:
+        sanitized, ctx = await pipeline.sanitize_request(payload, route=route)
+    except HardBlockError as exc:
+        await _safe_audit(
+            audit_sink,
+            auth=auth,
+            session_id=None,
+            route=route,
+            provider=provider_name,
+            entity_counts={t: 1 for t in sorted(set(exc.blocked_types))},
+            blocked=True,
+        )
+        return JSONResponse(
+            status_code=422,
+            content=error_body(
+                "request blocked by redaction policy",
+                code="hard_blocked",
+            ),
+        )
+
+    stream_requested = bool(payload.get("stream"))
+
+    if stream_requested:
+        return StreamingResponse(
+            _stream_response(
+                pipeline=pipeline,
+                provider=provider,
+                sanitized=sanitized,
+                ctx=ctx,
+                route=route,
+                provider_name=provider_name,
+                auth=auth,
+                audit_sink=audit_sink,
+                started=started,
+            ),
+            media_type="text/event-stream",
+        )
+
+    # ── Non-streaming ──
+    try:
+        completion = await provider.complete(sanitized)
+    except ProviderError as exc:
+        await _safe_audit(
+            audit_sink,
+            auth=auth,
+            session_id=ctx.session_id,
+            route=route,
+            provider=provider_name,
+            entity_counts=ctx.entity_counts,
+            blocked=False,
+            latency_ms=int((time.perf_counter() - started) * 1000),
+        )
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=error_body(str(exc), code="provider_error"),
+        )
+
+    reinflated = await pipeline.reinflate(completion, ctx)
+    prompt_tokens, completion_tokens = _usage(reinflated)
+    await _safe_audit(
+        audit_sink,
+        auth=auth,
+        session_id=ctx.session_id,
+        route=route,
+        provider=provider_name,
+        entity_counts=ctx.entity_counts,
+        blocked=False,
+        prompt_tokens=prompt_tokens,
+        completion_tokens=completion_tokens,
+        latency_ms=int((time.perf_counter() - started) * 1000),
+    )
+    return JSONResponse(status_code=200, content=reinflated)
+
+
+async def _stream_response(
+    *,
+    pipeline: Any,
+    provider: Provider,
+    sanitized: dict[str, Any],
+    ctx: PipelineContext,
+    route: str,
+    provider_name: str,
+    auth: AuthContext,
+    audit_sink: DBAuditSink,
+    started: float,
+) -> Any:
+    """Generator yielding SSE bytes; detokenizes each delta and flushes at the end."""
+    detok = pipeline.reinflate_stream(ctx)
+    try:
+        async for chunk in provider.stream(sanitized):
+            delta = extract_delta_text(chunk)
+            if delta:
+                out = await detok.push(delta)
+                set_delta_text(chunk, out)
+            yield _sse_chunk(chunk)
+        # Flush any buffered tail (a placeholder split across the last chunks).
+        tail = await detok.flush()
+        if tail:
+            yield _sse_chunk(
+                {
+                    "object": "chat.completion.chunk",
+                    "choices": [{"index": 0, "delta": {"content": tail}, "finish_reason": None}],
+                }
+            )
+    except ProviderError as exc:
+        # Surface upstream failures inline in the SSE stream (status already 200).
+        yield _sse_chunk(error_body(str(exc), code="provider_error"))
+    finally:
+        yield b"data: [DONE]\n\n"
+
+    await _safe_audit(
+        audit_sink,
+        auth=auth,
+        session_id=ctx.session_id,
+        route=route,
+        provider=provider_name,
+        entity_counts=ctx.entity_counts,
+        blocked=False,
+        latency_ms=int((time.perf_counter() - started) * 1000),
+    )
+
+
+# ── Routes ───────────────────────────────────────────────────────────────────────
+
+
+@router.post("/v1/chat/completions")
+async def chat_completions(
+    request: Request,
+    store: TokenStore = _StoreDep,
+    audit_sink: DBAuditSink = _AuditDep,
+    decision: PolicyDecision = _PolicyDep,
+    provider: Provider = _ProviderDep,
+    auth: AuthContext = _AuthDep,
+) -> Any:
+    return await _handle(
+        request,
+        "/v1/chat/completions",
+        store=store,
+        audit_sink=audit_sink,
+        decision=decision,
+        provider=provider,
+        auth=auth,
+    )
+
+
+@router.post("/v1/responses")
+async def responses(
+    request: Request,
+    store: TokenStore = _StoreDep,
+    audit_sink: DBAuditSink = _AuditDep,
+    decision: PolicyDecision = _PolicyDep,
+    provider: Provider = _ProviderDep,
+    auth: AuthContext = _AuthDep,
+) -> Any:
+    return await _handle(
+        request,
+        "/v1/responses",
+        store=store,
+        audit_sink=audit_sink,
+        decision=decision,
+        provider=provider,
+        auth=auth,
+    )
+
+
+@router.get("/v1/models")
+async def list_models() -> dict[str, Any]:
+    """List each configured provider's default model in the OpenAI `models` shape."""
+    import app.gateway  # noqa: F401  (self-registers adapters)
+    from app.gateway.base import available_providers, get_provider
+
+    data: list[dict[str, Any]] = []
+    for name in available_providers():
+        try:
+            provider = get_provider(name, settings)
+            model = provider.default_model()
+        except Exception:  # noqa: BLE001 - skip providers that cannot be instantiated
+            model = ""
+        if model:
+            data.append({"id": model, "object": "model", "owned_by": name})
+    return {"object": "list", "data": data}

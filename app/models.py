@@ -43,7 +43,7 @@ class Org(Base):
     name: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[dt.datetime] = mapped_column(TS, server_default=func.now())
 
-    teams: Mapped[list["Team"]] = relationship(back_populates="org", cascade="all, delete-orphan")
+    teams: Mapped[list[Team]] = relationship(back_populates="org", cascade="all, delete-orphan")
 
 
 class Team(Base):
@@ -110,7 +110,7 @@ class RedactionSession(Base):
     created_at: Mapped[dt.datetime] = mapped_column(TS, server_default=func.now())
     expires_at: Mapped[dt.datetime] = mapped_column(TS, nullable=False)
 
-    tokens: Mapped[list["TokenMap"]] = relationship(
+    tokens: Mapped[list[TokenMap]] = relationship(
         back_populates="session", cascade="all, delete-orphan"
     )
 

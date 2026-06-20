@@ -9,8 +9,6 @@ from __future__ import annotations
 
 import pathlib
 
-from sqlalchemy import text
-
 from app.db import get_engine
 
 MIGRATIONS_DIR = pathlib.Path(__file__).resolve().parent.parent / "migrations"
@@ -21,13 +19,19 @@ def migration_files() -> list[pathlib.Path]:
 
 
 async def apply_migrations() -> list[str]:
-    """Run all migration files. Returns the list of applied filenames."""
+    """Run all migration files. Returns the list of applied filenames.
+
+    Each file is a multi-statement SQL script (incl. a PL/pgSQL trigger with ``$$``
+    bodies), so we run it through the raw asyncpg connection's simple-query protocol —
+    SQLAlchemy/asyncpg's default prepared-statement path rejects multiple commands.
+    """
     applied: list[str] = []
     engine = get_engine()
     for path in migration_files():
         sql = path.read_text(encoding="utf-8")
-        async with engine.begin() as conn:
-            # asyncpg can run multi-statement scripts via exec_driver_sql
-            await conn.exec_driver_sql(sql)
+        async with engine.connect() as conn:
+            raw = await conn.get_raw_connection()
+            # underlying asyncpg.Connection — execute() supports multi-statement scripts
+            await raw.driver_connection.execute(sql)
         applied.append(path.name)
     return applied

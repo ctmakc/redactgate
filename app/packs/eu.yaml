@@ -1,0 +1,19 @@
+code: EU
+name: European Union (banking + tax)
+entity_types:
+  - IBAN
+  - VAT
+patterns:
+  - type: IBAN
+    # International Bank Account Number: 2-letter country + 2 check digits + up to 30
+    # alphanumerics, often grouped in 4-char blocks with spaces. mod-97 validated.
+    # Cues: "IBAN", "compte bancaire", "Bankverbindung", "рахунок".
+    regex: '\b[A-Z]{2}\d{2}(?:[ ]?[A-Z0-9]{4}){2,7}(?:[ ]?[A-Z0-9]{1,3})?\b'
+    validator: iban_mod97
+    description: 'IBAN (ISO 13616) bank account number'
+  - type: VAT
+    # EU VAT identification number: 2-letter country code + 2..12 alphanumerics. The GR/EL
+    # and GB legacy prefixes are included. Anchored loosely; conservative length bounds.
+    # Cues: "VAT", "TVA", "USt-IdNr", "ПДВ", "numero de TVA".
+    regex: '\b(?:AT|BE|BG|CY|CZ|DE|DK|EE|EL|ES|FI|FR|GB|GR|HR|HU|IE|IT|LT|LU|LV|MT|NL|PL|PT|RO|SE|SI|SK)[ ]?[A-Z0-9]{2,12}\b'
+    description: 'EU VAT identification number (TVA / USt-IdNr / ПДВ)'

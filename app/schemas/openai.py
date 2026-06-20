@@ -20,7 +20,7 @@ from __future__ import annotations
 import copy
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
 # ── Lenient request models (a faithful proxy must pass unknown fields through) ──
 

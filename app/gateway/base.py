@@ -10,8 +10,8 @@ factory ``get_provider(name)`` returns a configured singleton.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import AsyncIterator
-from typing import Any, Callable
+from collections.abc import AsyncIterator, Callable
+from typing import Any
 
 from app.config import Settings
 
