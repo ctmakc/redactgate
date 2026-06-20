@@ -49,8 +49,8 @@ Point any OpenAI client at it:
 curl http://localhost:8088/v1/chat/completions \
   -H "Authorization: Bearer $REDACTGATE_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"Summarize: SIN 046 454 286, John Smith."}]}'
-# upstream sees [[SIN_xxxx]] / [[PERSON_xxxx]] — you get the real answer back.
+  -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"Summarize: SIN 193 456 787, jane@example.com."}]}'
+# upstream sees [[SIN_xxxx]] / [[EMAIL_xxxx]] — you get the real answer back.
 ```
 
 ## Local development
