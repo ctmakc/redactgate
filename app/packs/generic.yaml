@@ -1,0 +1,28 @@
+code: GENERIC
+name: Generic PII (jurisdiction-independent)
+# Always-on pack for the most common, regex-reliable PII so the default config never
+# leaks email/phone/card/IP even with Presidio disabled. PERSON/ORG/LOCATION remain the
+# job of the Presidio/LLM-NER passes.
+entity_types:
+  - EMAIL
+  - PHONE
+  - CREDIT_CARD
+  - IP_ADDRESS
+patterns:
+  - type: EMAIL
+    regex: '\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b'
+    description: 'Email address'
+  - type: CREDIT_CARD
+    # 13–19 digits with optional single space/hyphen separators, Luhn-validated so random
+    # long digit runs are not flagged. Catches Visa/MC/Amex/Discover formats.
+    regex: '\b\d(?:[ \-]?\d){12,18}\b'
+    validator: luhn
+    description: 'Payment card number (Luhn-validated)'
+  - type: PHONE
+    # Require separators / parentheses / country code so bare 10-digit identifiers are not
+    # swept up. Covers NA "(613) 555-0142", "+1 613-555-0142", "613.555.0142".
+    regex: '(?:\+?\d{1,3}[ .\-]?)?(?:\(\d{3}\)|\d{3})[ .\-]\d{3}[ .\-]\d{4}\b'
+    description: 'Phone number (NA / international with separators)'
+  - type: IP_ADDRESS
+    regex: '\b(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)\b'
+    description: 'IPv4 address'

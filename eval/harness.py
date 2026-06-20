@@ -39,7 +39,7 @@ GOLDEN_DIR = Path(__file__).resolve().parent / "golden"
 
 # Pack codes used for the regex-only detection pass. Mirrors settings.pack_codes but is
 # kept independent so the harness is deterministic regardless of deployment config.
-DEFAULT_PACK_CODES = ["CA", "US", "EU", "UA", "IRCC"]
+DEFAULT_PACK_CODES = ["GENERIC", "CA", "US", "EU", "UA", "IRCC"]
 
 # A short, judge-shaped prompt. The judge returns a single float in [0, 1].
 _JUDGE_SYSTEM = (

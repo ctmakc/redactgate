@@ -65,7 +65,7 @@ class Settings(BaseSettings):
     enable_presidio: bool = False  # heavy; opt-in via the `ner` extra
     enable_llm_ner: bool = False  # uses the configured provider for an NER pass
     presidio_languages: str = "en"  # comma list e.g. "en,uk"
-    default_pack_codes: str = "CA,US,EU,UA"  # comma list of jurisdiction packs
+    default_pack_codes: str = "GENERIC,CA,US,EU,UA"  # comma list of jurisdiction packs
 
     # ── Vault / crypto ────────────────────────────────────────────────────
     # 32-byte master key, base64. A per-session DEK is derived and AES-GCM-wraps values.
