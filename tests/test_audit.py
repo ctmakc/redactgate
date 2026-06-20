@@ -284,16 +284,38 @@ async def test_record_does_not_mutate_caller_entity_counts():
 
 @integration_only()
 async def test_record_event_and_verify_chain_db():  # pragma: no cover - needs Postgres
+    import uuid
+
+    from sqlalchemy import text
+
     from app.audit import record_event, verify_chain
     from app.db import session_scope
 
+    # Own a fresh tenant so the chain is isolated from any other rows (audit is append-only).
+    org_id = str(uuid.uuid4())
+    team_id = str(uuid.uuid4())
+    async with session_scope() as session:
+        await session.execute(
+            text("INSERT INTO org(id, name) VALUES (:o, 'itest-org')"), {"o": org_id}
+        )
+        await session.execute(
+            text("INSERT INTO team(id, org_id, name) VALUES (:t, :o, 'itest-team')"),
+            {"t": team_id, "o": org_id},
+        )
+        await session.commit()
+
+    # Two events should chain off each other and persist.
     async with session_scope() as session:
         await record_event(
-            session,
-            team_id="team-A",
-            route="/v1/chat/completions",
-            provider="openai",
-            entity_counts={"EMAIL": 1},
-            blocked=False,
+            session, team_id=team_id, route="/v1/chat/completions",
+            provider="openai", entity_counts={"EMAIL": 1}, blocked=False,
         )
-        assert await verify_chain(session, "team-A") is True
+        await record_event(
+            session, team_id=team_id, route="/v1/chat/completions",
+            provider="openai", entity_counts={"SIN": 2}, blocked=False,
+        )
+        await session.commit()
+
+    # Verify the persisted chain in a brand-new session.
+    async with session_scope() as session:
+        assert await verify_chain(session, team_id) is True

@@ -61,3 +61,19 @@ def integration_only():
         os.environ.get("RUN_INTEGRATION") != "1",
         reason="set RUN_INTEGRATION=1 (needs live Postgres) to run",
     )
+
+
+@pytest.fixture(autouse=True)
+def _reset_db_engine_singleton():
+    """Reset the global async engine after every test.
+
+    pytest-asyncio (function-scoped loops) gives each async test a fresh event loop, but
+    ``app.db`` caches a single ``AsyncEngine``. An engine built on test A's loop would be
+    reused on test B's closed loop -> "attached to a different loop" / "Event loop is
+    closed". Nulling the singletons forces each DB-touching test to build a fresh engine
+    on its own loop. No-op for the unit lane (no engine is ever created)."""
+    yield
+    import app.db as _db
+
+    _db._engine = None
+    _db._sessionmaker = None

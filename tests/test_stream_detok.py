@@ -143,3 +143,46 @@ async def test_stream_independent_per_chunk_size_consistency(vault):
     for size in (1, 2, 5, 11, 64):
         outs.append(await _run_stream(vault, redacted, _chunks(redacted, size)))
     assert all(o == expected for o in outs)
+
+
+# ── Regression: prepared (snapshot) detokenizer survives store loss ───────────────
+# Reproduces the real-server bug where the request DB session is torn down before the
+# streaming SSE generator runs, so live store lookups silently miss and placeholders
+# leak through. The prepared detokenizer must resolve from its in-memory snapshot taken
+# while the store was alive — even after the store is wiped.
+
+
+async def test_prepared_stream_detokenizer_survives_store_loss(master_key, fingerprint_key):
+    from app.redaction.store import InMemoryTokenStore
+    from app.redaction.vault import Vault
+
+    store = InMemoryTokenStore()
+    vault = Vault(store, master_key=master_key, fingerprint_key=fingerprint_key)
+
+    text = "Verify SIN 193 456 787 then SIN 193 456 787 again."
+    spans = spans_for_all(text, "193 456 787", "SIN")
+    redacted = await vault.tokenize(text, spans, session_id=SESSION)
+    assert "[[SIN_" in redacted
+
+    # Snapshot taken while the store is alive (what the handler does before streaming).
+    detok = await vault.stream_detokenizer_prepared(SESSION)
+
+    # Simulate the request session being gone: wipe the backing store entirely.
+    store._by_fp.clear()
+    store._by_ph.clear()
+
+    # Streaming re-inflation must STILL restore the real values from the snapshot.
+    out = ""
+    for i in range(0, len(redacted), 4):  # tiny chunks split placeholders
+        out += await detok.push(redacted[i : i + 4])
+    out += await detok.flush()
+    assert out == text
+    assert "[[" not in out
+
+    # Contrast: a live (non-prepared) detokenizer would now miss after the store is gone.
+    live = vault.stream_detokenizer(SESSION)
+    leaked = ""
+    for i in range(0, len(redacted), 4):
+        leaked += await live.push(redacted[i : i + 4])
+    leaked += await live.flush()
+    assert "[[SIN_" in leaked  # documents the failure mode the prepared path fixes

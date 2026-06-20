@@ -188,9 +188,12 @@ async def _handle(
     stream_requested = bool(payload.get("stream"))
 
     if stream_requested:
+        # Pre-resolve the session token map NOW, while the request DB session is alive —
+        # the SSE generator below runs after this handler returns and the session is gone.
+        detok = await pipeline.prepare_stream_reinflation(ctx)
         return StreamingResponse(
             _stream_response(
-                pipeline=pipeline,
+                detok=detok,
                 provider=provider,
                 sanitized=sanitized,
                 ctx=ctx,
@@ -241,7 +244,7 @@ async def _handle(
 
 async def _stream_response(
     *,
-    pipeline: Any,
+    detok: Any,
     provider: Provider,
     sanitized: dict[str, Any],
     ctx: PipelineContext,
@@ -251,8 +254,11 @@ async def _stream_response(
     audit_sink: DBAuditSink,
     started: float,
 ) -> Any:
-    """Generator yielding SSE bytes; detokenizes each delta and flushes at the end."""
-    detok = pipeline.reinflate_stream(ctx)
+    """Generator yielding SSE bytes; detokenizes each delta and flushes at the end.
+
+    ``detok`` is a PRE-RESOLVED ``StreamDetokenizer`` (built in the handler while the DB
+    session was alive) so this generator needs no store access after the request closes.
+    """
     try:
         async for chunk in provider.stream(sanitized):
             delta = extract_delta_text(chunk)

@@ -165,9 +165,35 @@ class Vault:
         out.append(text[last:])
         return "".join(out)
 
+    async def resolution_map(self, session_id: str) -> dict[str, str]:
+        """Decrypt the whole session token map into ``{placeholder: real_value}``.
+
+        Used to PRE-RESOLVE a session before streaming: an SSE response generator runs
+        after the request handler returns, by which point the request-scoped DB session is
+        already closed — so live ``detokenize`` DB lookups would silently miss. Building
+        this snapshot while the session is still alive makes streaming re-inflation
+        DB-independent."""
+        out: dict[str, str] = {}
+        for rec in await self._store.all_for_session(session_id):
+            out[rec.placeholder] = self._decrypt(session_id, rec.value_ciphertext)
+        return out
+
     def stream_detokenizer(self, session_id: str) -> StreamDetokenizer:
-        """Create a stateful streaming de-tokenizer bound to this session."""
+        """Streaming de-tokenizer that resolves via live store lookups.
+
+        Safe only while the backing store/session stays alive for the whole stream (e.g.
+        the in-memory store). For the DB-backed proxy path use
+        ``stream_detokenizer_prepared``."""
         return StreamDetokenizer(self, session_id)
+
+    async def stream_detokenizer_prepared(self, session_id: str) -> StreamDetokenizer:
+        """Streaming de-tokenizer backed by an in-memory snapshot of the session.
+
+        Resolves the session's token map up front (needs a live store), so the returned
+        de-tokenizer needs no further store/DB access — correct for the streaming proxy
+        route whose generator outlives the request DB session."""
+        mapping = await self.resolution_map(session_id)
+        return StreamDetokenizer(self, session_id, resolved=mapping)
 
 
 class StreamDetokenizer:
@@ -181,10 +207,24 @@ class StreamDetokenizer:
     Invariant: ``"".join(all push() returns) + flush() == vault.detokenize(full_text)``.
     """
 
-    def __init__(self, vault: Vault, session_id: str) -> None:
+    def __init__(
+        self, vault: Vault, session_id: str, *, resolved: dict[str, str] | None = None
+    ) -> None:
         self._vault = vault
         self._session_id = session_id
         self._buffer = ""
+        # When provided, resolve placeholders from this in-memory snapshot (no DB access
+        # during streaming). When None, fall back to live ``vault.detokenize`` lookups.
+        self._resolved = resolved
+
+    async def _resolve(self, text: str) -> str:
+        if self._resolved is None:
+            return await self._vault.detokenize(text, session_id=self._session_id)
+        if "[[" not in text:
+            return text
+        return PLACEHOLDER_RE.sub(
+            lambda m: self._resolved.get(m.group(0), m.group(0)), text
+        )
 
     def _hold_len(self) -> int:
         """How many trailing chars of the buffer to withhold this round.
@@ -203,11 +243,11 @@ class StreamDetokenizer:
             return ""
         emit_src = self._buffer[: len(self._buffer) - hold] if hold else self._buffer
         self._buffer = self._buffer[len(self._buffer) - hold :] if hold else ""
-        return await self._vault.detokenize(emit_src, session_id=self._session_id)
+        return await self._resolve(emit_src)
 
     async def flush(self) -> str:
         if not self._buffer:
             return ""
-        out = await self._vault.detokenize(self._buffer, session_id=self._session_id)
+        out = await self._resolve(self._buffer)
         self._buffer = ""
         return out

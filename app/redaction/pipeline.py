@@ -159,12 +159,22 @@ class RedactionPipeline:
         return completion
 
     def reinflate_stream(self, ctx: PipelineContext) -> StreamDetokenizer:
-        """Return a stream de-tokenizer scoped to this request's session.
+        """Return a stream de-tokenizer that resolves via live store lookups.
 
-        The route feeds each streamed delta's content through ``.push(...)`` and calls
-        ``.flush()`` once the upstream stream ends.
+        Safe only while the backing store stays alive for the whole stream. The DB-backed
+        proxy route must use ``prepare_stream_reinflation`` instead, because its SSE
+        generator outlives the request DB session.
         """
         return self.vault.stream_detokenizer(ctx.session_id)
+
+    async def prepare_stream_reinflation(self, ctx: PipelineContext) -> StreamDetokenizer:
+        """Pre-resolve this request's session into an in-memory de-tokenizer.
+
+        Call this in the request handler (while the DB session is alive); the returned
+        de-tokenizer needs no further store access, so it is safe to use from the SSE
+        response generator after the request session has been torn down.
+        """
+        return await self.vault.stream_detokenizer_prepared(ctx.session_id)
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────────
