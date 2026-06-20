@@ -31,6 +31,21 @@ class TokenStore(Protocol):
       * one record per ``placeholder``.
     """
 
+    async def create_session(
+        self,
+        *,
+        team_id: str | None = None,
+        policy_id: str | None = None,
+        document_hash: str | None = None,
+        wrapped_dek: bytes = b"",
+    ) -> str:
+        """Open a new redaction session and return its id (used as the vault scope key).
+
+        Postgres impl inserts a ``redaction_session`` row; the in-memory impl just mints a
+        uuid. ``wrapped_dek`` is the at-rest DEK envelope (the live DEK is derived from the
+        master key + session id, so this is for rotation/audit only)."""
+        ...
+
     async def get_by_fingerprint(
         self, session_id: str, fingerprint: str
     ) -> TokenRecord | None: ...
@@ -54,6 +69,13 @@ class InMemoryTokenStore:
         # (session_id, fingerprint) -> record  and  (session_id, placeholder) -> record
         self._by_fp: dict[tuple[str, str], TokenRecord] = {}
         self._by_ph: dict[tuple[str, str], TokenRecord] = {}
+
+    async def create_session(
+        self, *, team_id=None, policy_id=None, document_hash=None, wrapped_dek=b""
+    ) -> str:
+        import uuid
+
+        return uuid.uuid4().hex
 
     async def get_by_fingerprint(self, session_id, fingerprint):
         return self._by_fp.get((session_id, fingerprint))
