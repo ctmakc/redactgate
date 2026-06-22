@@ -28,7 +28,7 @@ A tax associate pasting a client's bank statement into ChatGPT has no safe alter
 - **Hash-chained audit log** — append-only, zero-raw-value, one-click compliance export.
 - **Policy engine** — tokenize / mask / hard-block per team & route; provider allow-lists.
 - **Multi-provider gateway** — `AI_PROVIDER` ∈ anthropic, openai, gemini, azure, bedrock, do-genai, ollama.
-- **Fidelity benchmark** — golden-set recall + LLM-judge answer-fidelity scorecard.
+- **Fidelity benchmark** — golden-set recall + LLM-judge answer-fidelity scorecard. Measured (qwen2.5, fully local): detection recall 73–96% / precision 85–93%, and **~77% mean answer-fidelity** on the redact→answer→re-inflate round-trip — frontier models score higher.
 - **Local fallback** — `AI_PROVIDER=ollama` + regex/Presidio-only = fully air-gapped, no cloud, no key.
 
 ## Quickstart

@@ -249,14 +249,17 @@
         <div class="sec-eyebrow">published benchmark</div>
         <h2>We measure the cost of redaction, so you don't guess.</h2>
         <p class="lede">
-          A reproducible recall-vs-fidelity benchmark ships in the repo. Detection on the
-          jurisdiction golden sets, regex-only (higher with Presidio enabled):
+          A reproducible recall-vs-fidelity benchmark ships in the repo. Detection runs
+          regex-only on the jurisdiction golden sets (higher with Presidio). For fidelity,
+          an LLM judge scores the <em>redact → answer → re-inflate</em> round-trip against
+          the raw-text answer — here on a small <span class="mono">local</span> model
+          (qwen2.5, fully offline). Frontier models score higher.
         </p>
         <div class="row" style="margin-top: 32px; border: 1px solid var(--rule)">
           <div class="stat"><div class="n">73–96%</div><div class="l">detection recall</div></div>
           <div class="stat"><div class="n">90–96%</div><div class="l">precision</div></div>
-          <div class="stat"><div class="n">670+</div><div class="l">tests, CI green</div></div>
-          <div class="stat"><div class="n">13/13</div><div class="l">audit findings fixed</div></div>
+          <div class="stat"><div class="n">~77%</div><div class="l">answer fidelity · local qwen2.5</div></div>
+          <div class="stat"><div class="n">670+</div><div class="l">tests · CI green</div></div>
         </div>
       </div>
     </section>
