@@ -8,6 +8,9 @@ entity_types:
   - PHONE
   - CREDIT_CARD
   - IP_ADDRESS
+  - IP_ADDRESS_V6
+  - IBAN
+  - DATE_OF_BIRTH
 patterns:
   - type: EMAIL
     regex: '\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b'
@@ -26,3 +29,23 @@ patterns:
   - type: IP_ADDRESS
     regex: '\b(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)\b'
     description: 'IPv4 address'
+  - type: IP_ADDRESS_V6
+    # Full and compressed IPv6 (RFC 5952). Catches 8-group full form and :: compressed.
+    # Double-colon forms: ::1, fe80::1, 2001:db8::1, etc.
+    regex: '(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|(?:[0-9a-fA-F]{1,4}:){1,7}:|(?:[0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|::(?:[0-9a-fA-F]{1,4}:){0,5}[0-9a-fA-F]{1,4}|::1'
+    description: 'IPv6 address'
+  - type: IBAN
+    # International Bank Account Number: 2-letter country + 2 check digits + up to 30
+    # alphanumeric BBAN. Optionally space-grouped every 4 chars (print format).
+    # Covers most common jurisdictions; does not re-validate checksum (low false-positive
+    # risk because the 2-letter ISO prefix anchors the pattern).
+    regex: '\b[A-Z]{2}\d{2}[ ]?(?:[A-Z0-9]{4}[ ]?){1,7}[A-Z0-9]{1,4}\b'
+    description: 'IBAN (International Bank Account Number)'
+  - type: DATE_OF_BIRTH
+    # Common date formats likely to carry DOB context: YYYY-MM-DD (ISO 8601),
+    # DD/MM/YYYY and MM/DD/YYYY (ambiguous but equally sensitive), DD.MM.YYYY.
+    # Only flagged when near a DOB keyword ("born", "dob", "birth", "birthdate",
+    # "date of birth", "дата народження", "дата рождения", "ДН") within 40 chars.
+    # Without keyword anchoring the false-positive rate on plain dates is too high.
+    regex: '(?:(?:born|dob|birth(?:date)?|date of birth|дата?\s+(?:народження|рождения)|ДН)\s*[:\-]?\s*)(?:\d{4}[-/]\d{2}[-/]\d{2}|\d{2}[-/.]\d{2}[-/.]\d{4})'
+    description: 'Date of birth (keyword-anchored)'

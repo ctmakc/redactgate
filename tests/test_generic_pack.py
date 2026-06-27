@@ -89,3 +89,51 @@ def test_phone_does_not_match_bare_10_digit_run():
 def test_ipv4(ip, ok):
     got = any(t == "IP_ADDRESS" for t, _ in _detect(f"from {ip} last seen"))
     assert got is ok
+
+
+@pytest.mark.parametrize(
+    "ipv6",
+    [
+        "2001:0db8:85a3:0000:0000:8a2e:0370:7334",
+        "fe80::1",
+        "::1",
+        "2001:db8::1",
+    ],
+)
+def test_ipv6_detected(ipv6):
+    got = any(t == "IP_ADDRESS_V6" for t, _ in _detect(f"client {ipv6} connected"))
+    assert got, f"expected IPv6 match for {ipv6!r}"
+
+
+@pytest.mark.parametrize(
+    "iban",
+    [
+        "DE89370400440532013000",
+        "GB29 NWBK 6016 1331 9268 19",
+        "UA213996220000026007233566001",
+        "CA04 CIBC 0010 0234 5678 0",
+    ],
+)
+def test_iban_detected(iban):
+    got = any(t == "IBAN" for t, _ in _detect(f"account: {iban} transfer"))
+    assert got, f"expected IBAN match for {iban!r}"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "born: 1990-05-21",
+        "dob: 21/05/1990",
+        "birthdate: 05.21.1990",
+        "date of birth: 1990-05-21",
+        "дата народження: 21.05.1990",
+    ],
+)
+def test_dob_keyword_anchored(text):
+    got = any(t == "DATE_OF_BIRTH" for t, _ in _detect(text))
+    assert got, f"expected DOB match for {text!r}"
+
+
+def test_dob_bare_date_not_matched():
+    # plain date with no DOB keyword must NOT be flagged
+    assert not any(t == "DATE_OF_BIRTH" for t, _ in _detect("report date: 2024-01-15"))
