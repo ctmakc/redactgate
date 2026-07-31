@@ -50,6 +50,17 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               <div className="flex-1">{children}</div>
               <footer className="perimeter mt-10 flex items-center font-mono text-micro text-graphite">
                 raw values never cross this line
+                {/* Agency credit — house standard */}
+                <div style={{ width: "100%", textAlign: "center", padding: "20px 24px 0" }}>
+                  <a
+                    href="https://mmix.ua/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ fontSize: 12.5, lineHeight: 1.5, color: "inherit", opacity: 0.6, textDecoration: "none" }}
+                  >
+                    Development & promotion — Marketing Mix
+                  </a>
+                </div>
               </footer>
             </main>
           </div>
