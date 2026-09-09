@@ -12,6 +12,21 @@ export const metadata: Metadata = {
   title: "redactgate — console",
   description:
     "Self-hosted PII/financial redaction firewall. Detect, reversibly tokenize, and audit sensitive entities before any cloud-LLM call.",
+  icons: {
+    icon: "/favicon.png",
+    apple: "/apple-touch-icon.png",
+  },
+  openGraph: {
+    title: "redactgate — console",
+    description:
+      "Self-hosted PII/financial redaction firewall. Detect, reversibly tokenize, and audit sensitive entities before any cloud-LLM call.",
+    images: ["/images/og-image.png"],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "redactgate — console",
+    images: ["/images/og-image.png"],
+  },
 };
 
 const NAV = [
