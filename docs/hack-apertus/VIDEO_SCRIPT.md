@@ -9,7 +9,7 @@ because edge-tts returned HTTP 403 on 12 Oct; it sounds synthetic. For a better 
 slides. The table below is the script for a manual recording.
 
 Hack Apertus allows **at most 2 minutes**. Screen recording with voice-over; no face needed.
-Material: a terminal with `make run` output (or `docs/results/make_run_transcript.txt`),
+Material: a terminal with `make run` output (or `track_2b/docs/results/make_run_transcript.txt`),
 the three screenshots in `screenshots/`, and the repository page.
 
 Recording tips: 1920×1080, terminal font 18 px or larger, dark theme. A native GPU run of
