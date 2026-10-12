@@ -24,12 +24,18 @@ A tax associate pasting a client's bank statement into ChatGPT has no safe alter
 - **Multi-pass redaction engine** — regex jurisdiction packs + Presidio/spaCy + optional structured LLM-NER, merged by a confidence-weighted resolver.
 - **Reversible token vault** — `Acme Ltd → [[ORG_7f3a]]`, AES-256-GCM, per-session DEK, referential consistency (same value → same placeholder within a session).
 - **Stream-safe re-inflation** — placeholders are swapped back mid-SSE-stream, never emitted half-substituted.
-- **Per-jurisdiction packs** — CA (SIN/BN/GST/NEQ), US (SSN/EIN/ITIN), EU (IBAN/VAT), UA (EDRPOU/ІПН), IRCC (UCI) — en/uk/ru/fr aware.
+- **Per-jurisdiction packs** — CA (SIN/BN/GST/NEQ), US (SSN/EIN/ITIN), EU (IBAN/VAT), UA (EDRPOU/ІПН), IRCC (UCI), CH (AHV/AVS, CH-IBAN, UID, +41 phones, passport) — en/uk/ru/fr/de/it aware.
 - **Hash-chained audit log** — append-only, zero-raw-value, one-click compliance export.
 - **Policy engine** — tokenize / mask / hard-block per team & route; provider allow-lists.
-- **Multi-provider gateway** — `AI_PROVIDER` ∈ anthropic, openai, gemini, azure, bedrock, do-genai, ollama.
+- **Multi-provider gateway** — `AI_PROVIDER` ∈ anthropic, openai, gemini, azure, bedrock, do-genai, ollama, apertus.
 - **Fidelity benchmark** — golden-set recall + LLM-judge answer-fidelity scorecard. Measured (qwen2.5, fully local): detection recall 73–96% / precision 85–93%, and **~77% mean answer-fidelity** on the redact→answer→re-inflate round-trip — frontier models score higher.
 - **Local fallback** — `AI_PROVIDER=ollama` + regex/Presidio-only = fully air-gapped, no cloud, no key.
+
+## Apertus, air-gapped (Hack Apertus)
+
+Swiss open model Apertus v1.5 8B as both the answering model and the local PII detector, on
+one machine with no internet route: `cd track_2b && make run`. Details, evaluation and
+limitations: [`track_2b/technical_report.md`](track_2b/technical_report.md).
 
 ## Quickstart
 

@@ -1,0 +1,51 @@
+{
+  "model": "swiss-ai/Apertus-v1.5-8B",
+  "endpoint": "http://llm:8080/v1",
+  "egress": {
+    "huggingface.co:443": "blocked (gaierror)",
+    "1.1.1.1:443": "blocked (OSError)"
+  },
+  "airgapped": true,
+  "latency_s": 377.6,
+  "structured_identifiers": 17,
+  "structured_leaks": 0,
+  "ner_values": 9,
+  "ner_caught": 9,
+  "ner_missed_types": [],
+  "placeholders_in_answer": 9,
+  "placeholders_repaired": 0,
+  "placeholders_unresolved": 0,
+  "audit_chain_valid": true,
+  "audit_chain_detects_tamper": true,
+  "audit_raw_value_leaks": 0,
+  "audit_events": [
+    {
+      "team_id": "team-treuhand-demo",
+      "api_key_id": "demo",
+      "session_id": "a2f847c7884543c386fa573a7e084763",
+      "route": "/v1/chat/completions",
+      "provider": "apertus",
+      "entity_counts": {
+        "PERSON": 3,
+        "DATE_OF_BIRTH": 3,
+        "ADDRESS": 2,
+        "AHV": 3,
+        "PHONE": 3,
+        "EMAIL": 1,
+        "IBAN": 3,
+        "ORG": 3,
+        "UID": 3,
+        "PASSPORT": 1
+      },
+      "blocked": false,
+      "prompt_tokens": 693,
+      "completion_tokens": 199,
+      "latency_ms": 377549,
+      "prev_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "event_hash": "17b5472717a3c46106a478bbc294358a15c20d7afb6a044ad5cd76eb1a421cf5"
+    }
+  ],
+  "redacted_prompt": "Du arbeitest für ein Schweizer Treuhandbüro. Erstelle aus dem folgenden Dossier eine kurze Aufgabenliste auf Deutsch: pro Mandant eine Zeile mit Name, AHV-Nummer und IBAN, darunter die offenen Punkte als Stichworte.\n\nMandatsübersicht Treuhand, Steuerperiode 2025 (synthetisches Testdokument)\n\n1) Mandantin: [[PERSON_74c2d2]], geboren am [[DATE_OF_BIRTH_35b7f7]], wohnhaft [[ADDRESS_2964b4]].\nAHV-Nr. [[AHV_0434a8]], Tel. [[PHONE_b954aa]], E-Mail [[EMAIL_f8b107]].\nLohnkonto IBAN [[IBAN_d5ad9e]]. Arbeitgeberin: [[ORG_fc1041]], UID [[UID_ca92e1]] MWST.\nOffene Punkte: Bescheinigung Säule 3a fehlt, Steuererklärung bis 31.03. einreichen.\n\n2) Client : [[PERSON_cb3262]], né le [[DATE_OF_BIRTH_03fed4]], [[ADDRESS_7bbaaa]].\nNuméro AVS [[AHV_489924]], téléphone [[PHONE_b4d828]]. Compte : [[IBAN_c1e81d]].\nEntreprise individuelle [[ORG_08bac8]], IDE [[UID_ff5e68]] TVA.\nPoints ouverts : acompte TVA du 3e trimestre impayé.\n\n3) Cliente: [[PERSON_a5d74b]], nata il [[DATE_OF_BIRTH_6a8739]], [[ADDRESS_4ea4e6]].\nNumero AVS [[AHV_e76819]], cellulare [[PHONE_448cd9]], passaporto n. [[PASSPORT_f30d75]].\nConto: [[IBAN_34eae3]]. Ditta: [[ORG_851959]], IDI [[UID_52d9a8]] IVA.\nPunti aperti: rinnovo del passaporto, dichiarazione d'imposta 2025 da preparare.\n",
+  "model_answer_raw": "1) Mandantin: [[PERSON_74c2d2]], AHV-Nr. [[AHV_0434a8]], IBAN [[IBAN_d5ad9e]]; offene Punkte: Bescheinigung Säule 3a fehlt, Steuererklärung bis 31.03. einreichen.\n\n2) Client: [[PERSON_cb3262]], AHV-Nr. [[AHV_489924]], IBAN [[IBAN_c1e81d]]; offene Punkte: acompte TVA du 3e trimestre impayé.\n\n3) Cliente: [[PERSON_a5d74b]], AHV-Nr. [[AHV_e76819]], IBAN [[IBAN_34eae3]]; offene Punkte: rinnovo del passaporto, dichiarazione d'imposta 2025 da preparare.",
+  "answer_final_synthetic": "1) Mandantin: Lea Muster, AHV-Nr. 756.2468.1357.91, IBAN CH03 0070 0110 0001 2345 6; offene Punkte: Bescheinigung Säule 3a fehlt, Steuererklärung bis 31.03. einreichen.\n\n2) Client: Jean Exemple, AHV-Nr. 756.1357.9246.83, IBAN CH08 0483 5098 7654 3210 0; offene Punkte: acompte TVA du 3e trimestre impayé.\n\n3) Cliente: Giulia Esempio, AHV-Nr. 756.8642.0975.34, IBAN CH43 8080 8009 8765 4321 0; offene Punkte: rinnovo del passaporto, dichiarazione d'imposta 2025 da preparare."
+}

@@ -10,11 +10,11 @@ import base64
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field, field_validator
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ProviderName = Literal[
-    "anthropic", "openai", "gemini", "azure", "bedrock", "do-genai", "ollama"
+    "anthropic", "openai", "gemini", "azure", "bedrock", "do-genai", "ollama", "apertus"
 ]
 
 
@@ -58,12 +58,30 @@ class Settings(BaseSettings):
     do_genai_default_model: str = "llama3.3-70b-instruct"
     ollama_base_url: str = "http://localhost:11434"
     ollama_default_model: str = "llama3.1"
+    # Apertus (swiss-ai) behind any OpenAI-compatible server: llama.cpp `llama-server`,
+    # vLLM, or a hosted endpoint. Also read from the Hack Apertus env names LLM_BASE_URL /
+    # LLM_NAME / LLM_API_KEY so the same container runs against a judge-provided endpoint.
+    apertus_base_url: str = Field(
+        default="http://localhost:8091/v1",
+        validation_alias=AliasChoices("APERTUS_BASE_URL", "LLM_BASE_URL"),
+    )
+    apertus_api_key: str = Field(
+        default="", validation_alias=AliasChoices("APERTUS_API_KEY", "LLM_API_KEY")
+    )
+    apertus_default_model: str = Field(
+        default="swiss-ai/Apertus-v1.5-8B",
+        validation_alias=AliasChoices("APERTUS_DEFAULT_MODEL", "LLM_NAME"),
+    )
 
     upstream_timeout_seconds: float = 120.0
 
     # ── Detection ─────────────────────────────────────────────────────────
     enable_presidio: bool = False  # heavy; opt-in via the `ner` extra
     enable_llm_ner: bool = False  # uses the configured provider for an NER pass
+    # Provider for the LLM-NER pass. Empty = same as ai_provider. Setting it to a local
+    # model (e.g. "apertus" on llama.cpp) keeps the raw-text NER pass inside the perimeter
+    # even when the answering provider is a cloud API.
+    llm_ner_provider: str = ""
     presidio_languages: str = "en"  # comma list e.g. "en,uk"
     default_pack_codes: str = "GENERIC,CA,US,EU,UA"  # comma list of jurisdiction packs
 

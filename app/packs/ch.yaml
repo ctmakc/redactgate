@@ -1,0 +1,75 @@
+code: CH
+name: Switzerland (federal identifiers, de/fr/it)
+version: "1.0.0"
+# Swiss regulated identifiers. Every numeric identifier with a published check digit is
+# validator-gated so random digit runs are not redacted. Keyword cues are listed per pattern
+# in German / French / Italian (the three official languages used in client paperwork).
+entity_types:
+  - AHV
+  - IBAN
+  - UID
+  - PHONE
+  - PASSPORT
+  - NATIONAL_ID
+  - DATE_OF_BIRTH
+patterns:
+  - type: AHV
+    # AHV / AVS / AVS number (Sozialversicherungsnummer, numéro AVS, numero AVS):
+    # 756.XXXX.XXXX.XC — 13 digits, prefix 756, EAN-13 check digit (ahv_ean13).
+    # Cues: "AHV-Nr.", "AHVN13", "Sozialversicherungsnummer", "N° AVS", "numéro AVS",
+    # "numero AVS", "numero d'assicurato".
+    regex: '\b756[. ]?\d{4}[. ]?\d{4}[. ]?\d{2}\b'
+    validator: ahv_ean13
+    description: 'Swiss AHV/AVS social security number (EAN-13 check digit)'
+  - type: IBAN
+    # Swiss / Liechtenstein IBAN: CH|LI + 2 check digits + 5-digit bank clearing number +
+    # 12-char account = 21 chars, print format in blocks of four. mod-97 validated.
+    # Cues: "IBAN", "Kontonummer", "Bankverbindung", "compte", "coordonnées bancaires",
+    # "conto", "coordinate bancarie".
+    regex: '\b(?:CH|LI)\d{2}(?:[ ]?[0-9A-Z]{4}){4}[ ]?[0-9A-Z]\b'
+    validator: ch_iban
+    description: 'Swiss / Liechtenstein IBAN (21 chars, mod-97)'
+  - type: UID
+    # Enterprise identification number UID / IDE / IDI: CHE-123.456.789, optionally
+    # followed by a register suffix (MWST / TVA / IVA / HR / RC / RI). mod-11 check digit.
+    # Cues: "UID", "Unternehmens-Identifikationsnummer", "MWST-Nr.", "IDE", "numéro TVA",
+    # "IDI", "numero IVA".
+    regex: '\bCHE[- ]?\d{3}\.?\d{3}\.?\d{3}\b'
+    validator: ch_uid
+    description: 'Swiss UID / IDE / IDI enterprise number (mod-11 check digit)'
+  - type: PHONE
+    # International form: +41 / 0041, optional "(0)" trunk marker, 9-digit national number
+    # grouped 2-3-2-2 (e.g. +41 44 123 45 67, +41 (0)79 123 45 67, +41791234567).
+    # Cues: "Tel.", "Telefon", "Handy", "Natel", "téléphone", "portable", "telefono",
+    # "cellulare".
+    regex: '(?:\+41|\b0041)[ ]?(?:\(0\)[ ]?)?[1-9]\d[ ]?\d{3}[ ]?\d{2}[ ]?\d{2}\b'
+    validator: ch_phone
+    description: 'Swiss phone number, international format (+41 / 0041)'
+  - type: PHONE
+    # National form with the 0 trunk prefix. Separators are required (0XX XXX XX XX) so
+    # bare 10-digit identifiers are not swept up.
+    regex: '\b0[1-9]\d[ ]\d{3}[ ]\d{2}[ ]\d{2}\b'
+    validator: ch_phone
+    description: 'Swiss phone number, national format (0XX XXX XX XX)'
+  - type: PASSPORT
+    # Swiss passport number: one letter + 7 digits. No standalone check digit (the MRZ
+    # check digits live on the document), so this rule is keyword-anchored and only the
+    # number (named group `value`) is redacted.
+    # Cues: "Pass", "Reisepass", "Passnummer", "Pass-Nr.", "passeport", "passaporto".
+    regex: '\b(?:Reisepass|Passnummer|Pass(?:-?Nr\.?)?|passeport|passaporto)(?:\s+(?:numéro|numero|Nr\.?|n[°o]?\.?))?[\s:#°]*(?P<value>[A-Z]\d{7})\b'
+    flags: IGNORECASE
+    description: 'Swiss passport number (keyword-anchored, letter + 7 digits)'
+  - type: NATIONAL_ID
+    # Swiss identity card number: same shape as the passport number, anchored on the
+    # identity-card keyword in de/fr/it.
+    # Cues: "Identitätskarte", "ID-Karte", "carte d'identité", "carta d'identità".
+    regex: "\\b(?:Identitätskarte|ID-Karte|carte d'identité|carta d'identità)(?:\\s+(?:numéro|numero|Nr\\.?|n[°o]?\\.?))?[\\s:#°]*(?P<value>[A-Z]\\d{7})\\b"
+    flags: IGNORECASE
+    description: 'Swiss identity card number (keyword-anchored, letter + 7 digits)'
+  - type: DATE_OF_BIRTH
+    # Date of birth in de/fr/it client documents. Keyword-anchored; only the date is
+    # redacted. Cues: "Geburtsdatum", "geboren am", "geb.", "date de naissance", "né(e) le",
+    # "data di nascita", "nato/nata il".
+    regex: '(?:Geburtsdatum|geboren am|geb\.|date de naissance|née? le|data di nascita|nat[oa] il)\s*[:\-]?\s*(?P<value>\d{1,2}\.\s?\d{1,2}\.\s?\d{4}|\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2})'
+    flags: IGNORECASE
+    description: 'Date of birth, keyword-anchored (de/fr/it)'

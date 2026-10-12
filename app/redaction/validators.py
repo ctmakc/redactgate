@@ -129,6 +129,71 @@ def uci_check(s: str) -> bool:
     return 8 <= len(cleaned) <= 10 and cleaned.isdigit()
 
 
+# ── Switzerland (CH pack) ─────────────────────────────────────────────────────
+
+
+def ahv_ean13(s: str) -> bool:
+    """Swiss AHV/AVS social-security number (756.XXXX.XXXX.XC).
+
+    13 digits, country prefix 756, last digit is an EAN-13 check digit: weights 1,3,1,3...
+    over the first 12 digits from the left, check = (10 - sum % 10) % 10.
+    """
+    cleaned = re.sub(r"[\s.\-]", "", s)
+    if len(cleaned) != 13 or not cleaned.isdigit() or not cleaned.startswith("756"):
+        return False
+    total = sum((ord(ch) - 48) * (3 if i % 2 else 1) for i, ch in enumerate(cleaned[:12]))
+    return (10 - total % 10) % 10 == ord(cleaned[12]) - 48
+
+
+def ch_iban(s: str) -> bool:
+    """Swiss / Liechtenstein IBAN: CH or LI prefix, exactly 21 chars, ISO 13616 mod-97."""
+    cleaned = _digits(s).upper()
+    if len(cleaned) != 21 or cleaned[:2] not in {"CH", "LI"}:
+        return False
+    return iban_mod97(cleaned)
+
+
+_UID_WEIGHTS = (5, 4, 3, 2, 7, 6, 5, 4)
+
+
+def ch_uid(s: str) -> bool:
+    """Swiss enterprise identification number UID / IDE / IDI (CHE-123.456.789).
+
+    Nine digits; the ninth is a mod-11 check digit over the first eight with weights
+    5,4,3,2,7,6,5,4: check = 11 - (sum % 11); 11 maps to 0 and 10 is never issued.
+    """
+    cleaned = re.sub(r"[\s.\-]", "", s).upper()
+    if cleaned.startswith("CHE"):
+        cleaned = cleaned[3:]
+    if len(cleaned) != 9 or not cleaned.isdigit():
+        return False
+    total = sum((ord(ch) - 48) * w for ch, w in zip(cleaned[:8], _UID_WEIGHTS, strict=True))
+    check = 11 - (total % 11)
+    if check == 11:
+        check = 0
+    if check == 10:
+        return False
+    return check == ord(cleaned[8]) - 48
+
+
+def ch_phone(s: str) -> bool:
+    """Swiss phone number (+41 / 0041 / 0 trunk prefix + 9-digit national number).
+
+    Accepts the optional ``(0)`` trunk marker used in print (``+41 (0)44 ...``). The
+    national significant number must be exactly 9 digits and must not start with 0.
+    """
+    cleaned = re.sub(r"[\s.\-/]", "", s).replace("(0)", "")
+    if cleaned.startswith("+41"):
+        national = cleaned[3:]
+    elif cleaned.startswith("0041"):
+        national = cleaned[4:]
+    elif cleaned.startswith("0"):
+        national = cleaned[1:]
+    else:
+        return False
+    return len(national) == 9 and national.isdigit() and national[0] != "0"
+
+
 # Registry consumed by regex_packs.py to resolve a pattern's ``validator`` name.
 VALIDATORS: dict[str, Validator] = {
     "luhn": luhn,
@@ -140,6 +205,10 @@ VALIDATORS: dict[str, Validator] = {
     "edrpou_check": edrpou_check,
     "ipn_check": ipn_check,
     "uci_check": uci_check,
+    "ahv_ean13": ahv_ean13,
+    "ch_iban": ch_iban,
+    "ch_uid": ch_uid,
+    "ch_phone": ch_phone,
 }
 
 

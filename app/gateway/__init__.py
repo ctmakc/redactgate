@@ -21,7 +21,7 @@ from app.gateway.base import (  # noqa: F401
 log = logging.getLogger("redactgate.gateway")
 
 # Each adapter module calls register_provider(...) at import time.
-for _mod in ("anthropic", "openai", "gemini", "ollama", "azure", "bedrock", "do_genai"):
+for _mod in ("anthropic", "openai", "gemini", "ollama", "azure", "bedrock", "do_genai", "apertus"):
     try:
         __import__(f"app.gateway.{_mod}")
     except Exception as exc:  # noqa: BLE001
