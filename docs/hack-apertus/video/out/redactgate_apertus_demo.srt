@@ -1,0 +1,27 @@
+1
+00:00:00,000 --> 00:00:15,240
+A Swiss fiduciary office. Three client files, in German, French and Italian, full of AHV numbers, IBANs, company IDs, birth dates and home addresses. Everything you see here is synthetic.
+
+2
+00:00:15,940 --> 00:00:29,980
+RedactGate runs next to Apertus version 1.5, 8B, on llama.cpp, inside a Docker network with no route to the internet. The demo checks that first: both outside addresses are blocked.
+
+3
+00:00:30,680 --> 00:00:50,096
+Before anything reaches the model, the Swiss pack finds every AHV, IBAN and company ID by its check digit, and Apertus itself, running locally, finds the names, companies and addresses. Each value becomes a reversible token. This is exactly what the model receives.
+
+4
+00:00:50,796 --> 00:00:58,548
+Apertus writes the task list on tokens only. The gateway puts the real values back before the employee sees the answer.
+
+5
+00:00:59,248 --> 00:01:11,392
+The demo searches every byte sent to the model: zero of twenty-six values leaked. The audit log keeps counts and a hash chain, never values. Edit one event, and the chain breaks.
+
+6
+00:01:12,092 --> 00:01:23,468
+On thirty generated client notes, the local Apertus detector cuts what reaches the model from forty-two percent to under six percent, and the answers stay ninety-five percent correct.
+
+7
+00:01:24,168 --> 00:01:32,568
+One command, one machine, no cloud. RedactGate with Apertus, open source, built for Swiss client data.

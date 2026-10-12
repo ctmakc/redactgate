@@ -1,5 +1,13 @@
 # Demo video script — RedactGate × Apertus (max. 2:00)
 
+**A ready cut exists:** `docs/hack-apertus/video/out/redactgate_apertus_demo.mp4`
+(1920×1080, 93 s, captions burned in, subtitles in `.srt`). Slides are rendered from the real
+`make run` transcript and `eval_report.json`; build with `python3 docs/hack-apertus/video/build.py`,
+spoken text in `video/scenes.json`. The voice is gTTS (Google Translate TTS, sped up 1.15×)
+because edge-tts returned HTTP 403 on 12 Oct; it sounds synthetic. For a better voice, delete
+`video/out/*.mp3` and rebuild once edge-tts works again, or record your own voice over the same
+slides. The table below is the script for a manual recording.
+
 Hack Apertus allows **at most 2 minutes**. Screen recording with voice-over; no face needed.
 Material: a terminal with `make run` output (or `docs/results/make_run_transcript.txt`),
 the three screenshots in `screenshots/`, and the repository page.

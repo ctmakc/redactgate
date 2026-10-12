@@ -143,6 +143,7 @@ Apertus v1.5 8B · llama.cpp · GGUF · Python · FastAPI · httpx · Pydantic �
 - Demo transcript of the air-gapped run: `track_2b/docs/results/make_run_transcript.txt`
 - Evaluation results: `track_2b/docs/results/eval_report.json`
 - Screenshots: `docs/hack-apertus/screenshots/`
+- Demo video (93 s): `docs/hack-apertus/video/out/redactgate_apertus_demo.mp4`
 - Model weights: https://huggingface.co/Colby/apertus-v1.5-8b-text-Q4_K_M-GGUF
   (from https://huggingface.co/swiss-ai/Apertus-v1.5-8B)
 - Live landing page of RedactGate: https://redactgate.pages.dev
@@ -168,9 +169,11 @@ Apertus v1.5 8B · llama.cpp · GGUF · Python · FastAPI · httpx · Pydantic �
    `HackApertus/project-template` with only `track_2b/`. The branch carries `track_2b/` with
    the template files (`README.md`, `technical_report.md`, `Makefile`, `src/`, `data/`,
    `docs/`). A separate repo from the template can be created if the jury needs it.
-4. **Demo video** (max. 2 min): record from `VIDEO_SCRIPT.md`, upload (YouTube unlisted or
-   similar), paste the URL into the form and into `track_2b/technical_report.md`
-   (`{{VIDEO_URL}}`).
+4. **Demo video** (max. 2 min): a 93-second cut is ready at
+   `docs/hack-apertus/video/out/redactgate_apertus_demo.mp4` (synthetic gTTS voice, captions
+   burned in). Upload it (YouTube unlisted or similar), or use the GitHub file URL
+   `https://github.com/ctmakc/redactgate/blob/hack-apertus/docs/hack-apertus/video/out/redactgate_apertus_demo.mp4`;
+   paste the URL into the form and into `track_2b/technical_report.md` (`{{VIDEO_URL}}`).
 5. **Team members** in the report header (`{{TEAM_MEMBERS}}`) and the form, then regenerate
    the PDF.
 6. **Model access terms.** The weights came from an ungated community GGUF (Apache-2.0). The

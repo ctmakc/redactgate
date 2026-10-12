@@ -230,7 +230,8 @@ NER pass with a dedicated local provider.
 - `make test`: the unit suite (no model, no network).
 - Without Docker: run `llama-server -m apertus-v1.5-8b-text-q4_k_m.gguf --jinja --port 8091`,
   then `pip install -e .` at the repository root and `python track_2b/src/demo.py`.
-- Seed 7 for the generated notes. Commit: `{{COMMIT}}`.
+- Seed 7 for the generated notes. Code measured at commit `f31459b` on branch
+  `hack-apertus`; later commits change documentation and the video only.
 
 ## 8. Next steps
 
