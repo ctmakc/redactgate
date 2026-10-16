@@ -51,3 +51,27 @@ def test_ca_no_false_positive_on_money_years_and_prose(text):
     found = _found(text)
     for etype in ("SIN", "HEALTH_CARD", "BANK_ACCOUNT", "BANK_TRANSIT", "POSTAL_CODE", "ADDRESS"):
         assert etype not in found, (etype, found)
+
+
+@pytest.mark.parametrize(
+    ("text", "etype", "value"),
+    [
+        ("Priya Raman (DOB 1988-03-22, phone", "DATE_OF_BIRTH", "1988-03-22"),
+        ("Patient: Mei Chen, DOB 1979-11-05", "DATE_OF_BIRTH", "1979-11-05"),
+        ("born on 02/09/1975", "DATE_OF_BIRTH", "02/09/1975"),
+        ("insurer policy number TD-4471-8820. She", "INSURANCE_POLICY", "TD-4471-8820"),
+        ("claim # 77-1209-AB", "INSURANCE_POLICY", "77-1209-AB"),
+    ],
+)
+def test_generic_dob_and_policy(text, etype, value):
+    found: dict[str, list[str]] = {}
+    for pack in load_packs(["GENERIC"]):
+        for sp in pack.detect(text):
+            found.setdefault(sp.entity_type, []).append(sp.text)
+    assert value in found.get(etype, []), found
+
+
+@pytest.mark.parametrize("text", ["the policy was renewed in 2024", "policy number unknown", "a meeting on 2026-10-14"])
+def test_generic_no_false_positive(text):
+    found = [sp for pack in load_packs(["GENERIC"]) for sp in pack.detect(text)]
+    assert not [s for s in found if s.entity_type in ("INSURANCE_POLICY", "DATE_OF_BIRTH")], found

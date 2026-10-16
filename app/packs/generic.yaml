@@ -11,6 +11,7 @@ entity_types:
   - IP_ADDRESS_V6
   - IBAN
   - DATE_OF_BIRTH
+  - INSURANCE_POLICY
 patterns:
   - type: EMAIL
     regex: '\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b'
@@ -47,5 +48,14 @@ patterns:
     # Only flagged when near a DOB keyword ("born", "dob", "birth", "birthdate",
     # "date of birth", "дата народження", "дата рождения", "ДН") within 40 chars.
     # Without keyword anchoring the false-positive rate on plain dates is too high.
-    regex: '(?:(?:born|dob|birth(?:date)?|date of birth|дата?\s+(?:народження|рождения)|ДН)\s*[:\-]?\s*)(?:\d{4}[-/]\d{2}[-/]\d{2}|\d{2}[-/.]\d{2}[-/.]\d{4})'
+    # Case-insensitive ("DOB", "Born") and only the date itself is redacted (named group
+    # `value`), so the keyword stays readable for the model. (Build North fix: "DOB 1988-03-22"
+    # was missed because the cue match was case-sensitive.)
+    regex: '(?:(?:born|dob|birth(?:date)?|date of birth|дата?\s+(?:народження|рождения)|ДН)\s*(?:on)?\s*[:\-]?\s*)(?P<value>\d{4}[-/]\d{2}[-/]\d{2}|\d{2}[-/.]\d{2}[-/.]\d{4})'
+    flags: IGNORECASE
     description: 'Date of birth (keyword-anchored)'
+  - type: INSURANCE_POLICY
+    # Insurance / policy / claim reference after an explicit cue. Letters, digits, dashes.
+    regex: '(?:policy|claim)\s*(?:number|no\.?|#)?[\s:#]*(?P<value>(?=[A-Z0-9-]*\d)[A-Z0-9][A-Z0-9-]{4,24}[A-Z0-9])\b'
+    flags: IGNORECASE
+    description: 'Insurance policy or claim number after a policy/claim cue'
