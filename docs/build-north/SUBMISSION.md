@@ -5,6 +5,7 @@
 - Live console: https://redactgate.mmix.biz (sign up, name a firm, open Playground)
 - Code: https://github.com/ctmakc/redactgate (AGPL-3.0), Build Week branch `build-north`
 - Landing: https://redactgate.pages.dev
+- Demo video (78 s): https://youtu.be/IdkjZTXpl1c
 - Team: Maksym Stepanenko (solo, Ottawa)
 
 ## Inspiration
@@ -60,7 +61,7 @@ The console (new this week) is where a firm uses and governs it:
 - Live deployment: gateway and console run as systemd services on our own machine in
   Ottawa, published through a Cloudflare tunnel. Only the console is public; the gateway API
   listens on localhost.
-- Tests: 389 pass (unit lane plus Postgres integration), including Anthropic adapter cases,
+- Tests: 397 pass (unit lane plus Postgres integration), including Anthropic adapter cases,
   the new Canadian patterns with negative cases (money, years, prose), tenant isolation,
   the playground cap and fallback rules.
 

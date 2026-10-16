@@ -12,6 +12,7 @@ Needs:  playwright + chromium, ffmpeg/ffprobe with libass, edge-tts at $EDGE_TTS
 Output: docs/build-north/video/out/redactgate_build_north.mp4 (+ .srt)
 """
 
+# ruff: noqa: E702  (compact Playwright step scripts: one browser action per statement pair)
 from __future__ import annotations
 
 import json
@@ -204,7 +205,7 @@ def record(browser) -> dict[str, tuple[pathlib.Path, list[tuple[float, float]]]]
         pg = ctx.new_page()
         t0 = time.monotonic()
 
-        def mark() -> float:
+        def mark(t0: float = t0) -> float:
             return time.monotonic() - t0
 
         spans = {sc["id"]: FUNCS[sc["id"]][1](pg, mark) for sc in scs}
