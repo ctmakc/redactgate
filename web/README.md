@@ -7,26 +7,37 @@ and renders a clean operator console.
 > RedactGate stores **entity type counts only** — raw detected values are never persisted,
 > returned, or rendered. Everything in this UI is counts/metadata.
 
+## Sign-in, firms and roles (Clerk)
+
+Every route requires a signed-in [Clerk](https://clerk.com) user. A firm is a Clerk
+**organization**; the console maps the active organization to a RedactGate tenant on the
+server (`POST /admin/tenants/resolve`), so the browser never chooses a tenant id.
+
+| Clerk role | Can |
+|---|---|
+| `org:admin` | playground, create / enforce policies, read the audit trail |
+| `org:compliance` (custom role) | read the audit trail, verify the hash chain, read policies |
+| `org:member` | playground, dashboard |
+
+Role checks run server-side in pages and server actions (`lib/session.ts`). Without Clerk
+keys the console builds and serves only `/setup`.
+
 ## Pages
 
 | Route | Purpose |
 |---|---|
-| `/` | Dashboard — redaction volume, entity-type breakdown, hard-block count, per-provider routing, latest benchmark score. |
-| `/audit` | Searchable, paginated, hash-chained audit ledger (route, provider, entity counts, blocked, latency, time). |
-| `/policies` | List policies and create one (name, mode `tokenize`/`mask`/`hard_block`, blocked types, allowed providers). |
-| `/benchmark` | Recall / precision / answer-fidelity scorecard per provider and golden-set pack. |
+| `/` | Firm dashboard: redaction volume by type, hard-blocks, per-provider routing, chain check. |
+| `/playground` | Send a synthetic note through the gateway to Claude: original with detected values, the exact payload the model received, the answer with values restored, and the audit row written. |
+| `/audit` | Paginated, hash-chained audit ledger for the firm; chain verified on load. |
+| `/policies` | Firm policies; admins create and enforce, compliance officers read. |
+| `/benchmark` | Recall / precision / answer-fidelity scorecard. |
+| `/sign-in`, `/sign-up`, `/firm` | Clerk sign-in, sign-up, firm selection or creation. |
 
 ## Configuration
 
-| Env var | Scope | Meaning |
-|---|---|---|
-| `REDACTGATE_API_BASE` | server | Base URL of the RedactGate FastAPI service (e.g. `http://localhost:8080`). |
-| `REDACTGATE_ADMIN_TOKEN` | server | Sent as `X-Admin-Token`. **Never** shipped to the browser. |
-| `NEXT_PUBLIC_API_BASE` | client | Optional. Defaults to the in-app `/api/proxy` route handler, which injects the admin token server-side. |
-
-Copy `.env.example` to `.env` and fill it in. Server Components fetch directly from
-`REDACTGATE_API_BASE`; the few client-side calls go through `/api/proxy/admin/*`, where the
-admin token is attached server-side so it never enters the browser bundle.
+See `.env.example`: `REDACTGATE_API_BASE`, `REDACTGATE_ADMIN_TOKEN` (server only),
+`NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`. All admin API calls are made
+server-side; there is no browser-facing proxy to the admin API.
 
 ## Develop
 
