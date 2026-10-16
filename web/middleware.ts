@@ -16,7 +16,15 @@ const configured = Boolean(
 );
 
 const withClerk = clerkMiddleware(async (auth, req) => {
-  if (!isPublic(req)) await auth.protect();
+  if (isPublic(req)) return;
+  // Signed-out visitors are sent to /sign-in for every request type. (auth.protect()
+  // answers non-HTML requests with 404, so a bare link or `curl` looked like an error.)
+  const { userId } = await auth();
+  if (!userId) {
+    const to = new URL("/sign-in", req.url);
+    if (req.nextUrl.pathname !== "/") to.searchParams.set("redirect_url", req.nextUrl.pathname);
+    return NextResponse.redirect(to);
+  }
 });
 
 export default function middleware(req: NextRequest, ev: Parameters<typeof withClerk>[1]) {
