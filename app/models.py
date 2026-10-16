@@ -41,6 +41,8 @@ class Org(Base):
     __tablename__ = "org"
     id: Mapped[uuid.UUID] = _uuid_pk()
     name: Mapped[str] = mapped_column(Text, nullable=False)
+    # Identity-provider organization id (Clerk ``org_...``); NULL for the seeded default.
+    external_id: Mapped[str | None] = mapped_column(Text, unique=True)
     created_at: Mapped[dt.datetime] = mapped_column(TS, server_default=func.now())
 
     teams: Mapped[list[Team]] = relationship(back_populates="org", cascade="all, delete-orphan")

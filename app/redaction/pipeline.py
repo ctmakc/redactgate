@@ -55,6 +55,9 @@ class PipelineContext:
     entity_counts: dict[str, int] = field(default_factory=dict)
     blocked: bool = False
     spans: list[EntitySpan] = field(default_factory=list)
+    # Per extracted text: (normalized text, its surviving spans). In-memory only, used by
+    # the admin playground's explain view; never persisted or logged.
+    per_text: list[tuple[str, list[EntitySpan]]] = field(default_factory=list, repr=False)
 
 
 class RedactionPipeline:
@@ -150,6 +153,7 @@ class RedactionPipeline:
 
         ctx.spans = all_spans
         ctx.entity_counts = _count_types(all_spans)
+        ctx.per_text = list(zip(texts, filtered, strict=True))
         return sanitized_payload, ctx
 
     # ── Response re-inflation ───────────────────────────────────────────────────

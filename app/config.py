@@ -40,7 +40,7 @@ class Settings(BaseSettings):
     # Per-provider credentials / endpoints. Empty string = unconfigured.
     anthropic_api_key: str = ""
     anthropic_base_url: str = "https://api.anthropic.com"
-    anthropic_default_model: str = "claude-sonnet-4-6"
+    anthropic_default_model: str = "claude-opus-5-5"
     openai_api_key: str = ""
     openai_base_url: str = "https://api.openai.com/v1"
     openai_default_model: str = "gpt-4o-mini"
@@ -88,6 +88,7 @@ class Settings(BaseSettings):
     # ── Auth ──────────────────────────────────────────────────────────────
     admin_token: str = ""  # gates the admin API/UI when set
     require_api_key: bool = True  # if False, a default dev team/policy is used
+    playground_daily_limit: int = 40  # admin playground runs per team per 24 h
 
     # ── Hardening ─────────────────────────────────────────────────────────
     max_body_bytes: int = 2_000_000  # reject request bodies larger than this (413)

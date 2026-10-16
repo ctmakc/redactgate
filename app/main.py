@@ -106,6 +106,7 @@ def create_app() -> FastAPI:
         ("app.routes.health", "router"),
         ("app.routes.proxy", "router"),
         ("app.routes.admin", "router"),
+        ("app.routes.tenants", "router"),
     ):
         try:
             mod = __import__(module_path, fromlist=[attr])
