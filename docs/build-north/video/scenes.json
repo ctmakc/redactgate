@@ -1,0 +1,37 @@
+[
+ {
+  "id": "signin",
+  "say": "Accountants, lawyers and clinics paste client notes into AI chat every day. RedactGate is a self-hosted gateway that lets a firm use Claude without sending Claude its clients.",
+  "caption": "Accountants, lawyers and clinics paste client notes into AI chat every day. RedactGate is a self-hosted gateway that lets a firm use Claude without sending Claude its clients."
+ },
+ {
+  "id": "dashboard",
+  "say": "Staff sign in with Clerk. Each firm is a Clerk organization, and the member's role decides what they can do: admin, compliance officer, or member.",
+  "caption": "Staff sign in with Clerk. Each firm is a Clerk organization, and the member's role decides what they can do: admin, compliance officer, or member."
+ },
+ {
+  "id": "run",
+  "say": "Here is a synthetic tax file note with a social insurance number, a health card, a bank account and an address. One click seals every value and sends the note to Claude Opus five point five.",
+  "caption": "Here is a synthetic tax file note with a social insurance number, a health card, a bank account and an address. One click seals every value and sends the note to Claude Opus 5.5."
+ },
+ {
+  "id": "panes",
+  "say": "On the left, what stayed inside the firm, each value tagged by type. In the middle, the exact text Claude received: placeholders only. On the right, Claude's answer, with the real values put back on our side of the line.",
+  "caption": "On the left, what stayed inside the firm, each value tagged by type. In the middle, the exact text Claude received: placeholders only. On the right, Claude's answer, with the real values put back on our side of the line."
+ },
+ {
+  "id": "audit",
+  "say": "Each request writes one audit event, chained by hash: entity counts, tokens and latency. The note itself is never stored.",
+  "caption": "Each request writes one audit event, chained by hash: entity counts, tokens and latency. The note itself is never stored."
+ },
+ {
+  "id": "compliance",
+  "say": "A compliance officer signs in to the same firm. She sees the audit trail with the chain re-verified, and read-only policies. She cannot send prompts.",
+  "caption": "A compliance officer signs in to the same firm. She sees the audit trail with the chain re-verified, and read-only policies. She cannot send prompts."
+ },
+ {
+  "id": "close",
+  "say": "Clerk sign-in, firm roles, the playground and the Canadian detection fixes were built during Build North. RedactGate is open source. Try it at redactgate dot mmix dot biz.",
+  "caption": "Clerk sign-in, firm roles, the playground and the Canadian detection fixes were built during Build North. RedactGate is open source. Try it at redactgate.mmix.biz."
+ }
+]

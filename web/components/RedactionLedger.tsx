@@ -3,12 +3,8 @@ import type { CSSProperties } from "react";
 import { Token } from "./Token";
 
 const HEX = ["7f3a", "b1c2", "9d4e", "2a8f", "0c6b", "5e1d", "c4a9", "8b30"];
-const SHORT: Record<string, string> = {
-  CREDIT_CARD: "CC",
-  IP_ADDRESS: "IP",
-  BANK_ACCOUNT: "ACCT",
-  PHONE: "PHONE",
-};
+// Illustrative tokens use the gateway's real type names, so they match the playground.
+const SHORT: Record<string, string> = {};
 
 export interface LedgerRow {
   entity_type: string;
