@@ -5,6 +5,11 @@ entity_types:
   - BUSINESS_NUMBER
   - GST_HST
   - NEQ
+  - HEALTH_CARD
+  - BANK_TRANSIT
+  - BANK_ACCOUNT
+  - POSTAL_CODE
+  - ADDRESS
 patterns:
   - type: SIN
     # Social Insurance Number — 9 digits, optionally grouped 3-3-3 with spaces or hyphens.
@@ -13,6 +18,13 @@ patterns:
     regex: '\b\d{3}[ -]?\d{3}[ -]?\d{3}\b'
     validator: sin_check
     description: "Canadian SIN / NAS (numero d'assurance sociale)"
+  - type: SIN
+    # Cue-anchored SIN: a 9-digit run right after "SIN"/"NAS"/"social insurance number"
+    # is redacted even when the checksum fails (typos, test SINs starting with 0).
+    # Over-redacting a mistyped SIN is cheap; leaking a real one is not. (Build North)
+    regex: '(?:\bSIN|\bNAS|social insurance(?:\s+number)?|assurance sociale)\b\s*(?:no\.?|number|#)?[\s:#.]*(?P<value>[0-9]{3}[ -]?[0-9]{3}[ -]?[0-9]{3})\b'
+    flags: IGNORECASE
+    description: "SIN after an explicit SIN/NAS cue (no checksum gate)"
   - type: BUSINESS_NUMBER
     # CRA Business Number: 9-digit BN, optionally followed by a 2-letter program
     # identifier and a 4-digit reference (e.g. 123456789RC0001, 123456789 RT 0001).
@@ -30,3 +42,31 @@ patterns:
     regex: '\bNEQ[ :#]*(?P<value>\d{4}[ -]?\d{3}[ -]?\d{3})\b'
     flags: IGNORECASE
     description: "Quebec NEQ (Numero d'entreprise du Quebec)"
+  - type: HEALTH_CARD
+    # Provincial health card with version code, e.g. Ontario OHIP 1234-567-890-AB.
+    regex: '\b\d{4}[ -]?\d{3}[ -]?\d{3}[ -]?[A-Z]{2}\b'
+    description: "Health card number with version code (OHIP style)"
+  - type: HEALTH_CARD
+    # Cue-anchored health card (OHIP / RAMQ / MSP / health card / carte santé).
+    regex: '(?:\bOHIP|\bRAMQ|\bMSP|health\s+card|carte\s+sant[eé])\b\s*(?:no\.?|number|#)?[\s:#.]*(?P<value>[A-Z]{0,4}\d[\d -]{6,14}\d(?:[ -]?[A-Z]{2})?)'
+    flags: IGNORECASE
+    description: "Health card number after an OHIP/RAMQ/MSP/health-card cue"
+  - type: BANK_TRANSIT
+    # Branch transit number (5 digits) after a transit/branch cue.
+    regex: '(?:\btransit|\bbranch)\b\s*(?:no\.?|number|#)?[\s:#.]*(?P<value>\d{5})\b'
+    flags: IGNORECASE
+    description: "Bank branch transit number"
+  - type: BANK_ACCOUNT
+    # Deposit account number (5-12 digits) after an account cue.
+    regex: '(?:\baccount|\bacct|\ba/c|\bcompte)\b\.?\s*(?:no\.?|number|#)?[\s:#.]*(?P<value>\d[\d -]{3,14}\d)\b'
+    flags: IGNORECASE
+    description: "Bank account number after an account cue"
+  - type: POSTAL_CODE
+    # Canadian postal code (letters exclude D F I O Q U; first letter also excludes W Z).
+    regex: '\b[ABCEGHJ-NPRSTVXY]\d[ABCEGHJ-NPRSTV-Z][ -]?\d[ABCEGHJ-NPRSTV-Z]\d\b'
+    description: "Canadian postal code"
+  - type: ADDRESS
+    # Civic street address: number + 1-3 capitalized words + a street type, e.g.
+    # "88 Harbour St", "1200 Bay Street", "45 Rue Sainte-Catherine" is out of scope here.
+    regex: '\b\d{1,6}[A-Z]?\s+(?:[A-Z][a-zA-Z''.-]+\s+){1,3}(?:St|Street|Ave|Avenue|Rd|Road|Blvd|Boulevard|Dr|Drive|Cres|Crescent|Way|Lane|Ln|Ct|Court|Pl|Place|Terrace|Pkwy|Parkway|Hwy|Highway|Sq|Square|Circle|Trail)\b\.?'
+    description: "Civic street address (number + street name + street type)"

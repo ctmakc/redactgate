@@ -60,10 +60,17 @@ class Settings(BaseSettings):
     ollama_default_model: str = "llama3.1"
 
     upstream_timeout_seconds: float = 120.0
+    # Comma list tried in order when the primary provider fails (non-streaming requests).
+    # Each must also be on the policy's allow-list. e.g. "ollama" = local air-gapped model.
+    ai_fallback_providers: str = ""
 
     # ── Detection ─────────────────────────────────────────────────────────
     enable_presidio: bool = False  # heavy; opt-in via the `ner` extra
-    enable_llm_ner: bool = False  # uses the configured provider for an NER pass
+    enable_llm_ner: bool = False  # adds an LLM entity-extraction pass (names, addresses)
+    # The NER pass sees RAW text, so it runs on a LOCAL model by default. A cloud provider
+    # here would ship unredacted text out of the perimeter; that needs an explicit opt-in.
+    llm_ner_provider: str = "ollama"
+    llm_ner_allow_cloud: bool = False
     presidio_languages: str = "en"  # comma list e.g. "en,uk"
     default_pack_codes: str = "GENERIC,CA,US,EU,UA"  # comma list of jurisdiction packs
 

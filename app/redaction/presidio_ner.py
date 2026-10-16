@@ -32,7 +32,9 @@ _TYPE_MAP: dict[str, str] = {
     "ORGANIZATION": "ORG",
     "IP_ADDRESS": "IP_ADDRESS",
     "URL": "URL",
-    "DATE_TIME": "DATE_TIME",
+    # DATE_TIME is deliberately NOT mapped: spaCy tags "this year", "14 Oct 2026" or a tax
+    # year as dates, and tokenizing those destroys the meaning tax/legal answers depend on.
+    # Dates of birth are caught by the GENERIC pack's cue-anchored DOB pattern instead.
 }
 
 

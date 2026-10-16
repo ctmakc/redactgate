@@ -1,20 +1,22 @@
 """Optional LLM-backed NER pass.
 
-When ``settings.enable_llm_ner`` is set, the detector adds a pass that asks the *configured
-provider itself* to extract sensitive entities as structured JSON. This catches free-text
-PII (names, addresses, account references) that the regex packs and Presidio miss.
+When ``settings.enable_llm_ner`` is set, the detector adds a pass that asks a model to
+extract sensitive entities as structured JSON. This catches free-text PII (names,
+addresses, account references) that the regex packs and Presidio miss.
 
 Design constraints:
-  * Reuses the same gateway the proxy uses (``get_provider(settings.ai_provider, settings)``)
-    so no extra credentials / SDKs are needed.
+  * The pass reads RAW text, so it runs on ``settings.llm_ner_provider`` (default
+    ``ollama``, a local model inside the perimeter). Pointing it at a cloud provider is
+    refused unless ``settings.llm_ner_allow_cloud`` is set: otherwise the NER call itself
+    would leak the very values the gateway exists to protect. (Fixed during Build North,
+    Oct 2026; the earlier version reused the cloud provider.)
   * Fully tolerant: ANY error (no provider, bad JSON, timeout, schema drift) -> ``[]``. The
     LLM pass must never break the request path.
   * Returns offsets relative to the exact ``text`` it was given; spans whose ``text`` can be
     re-located in the source are re-anchored, and bogus offsets are dropped.
 
-SECURITY: this module sends ``text`` to the configured provider (that is the whole point of
-RedactGate's redact-before-send flow, so this pass runs on the *raw* text inside the trust
-boundary). It never logs entity values locally.
+SECURITY: this module sends raw ``text`` to the NER provider, so that provider must sit
+inside the trust boundary. It never logs entity values locally.
 """
 
 from __future__ import annotations
@@ -137,12 +139,22 @@ def _anchor_spans(text: str, items: list[dict[str, Any]]) -> list[EntitySpan]:
     return spans
 
 
+LOCAL_PROVIDERS = frozenset({"ollama"})
+
+
+def ner_provider_permitted() -> bool:
+    """True when the NER provider is local, or a cloud NER provider was explicitly allowed."""
+    return settings.llm_ner_provider in LOCAL_PROVIDERS or settings.llm_ner_allow_cloud
+
+
 async def llm_ner(text: str) -> list[EntitySpan]:
     """Ask the configured provider to extract entities from ``text``. Returns [] on any error."""
     if not text or not text.strip():
         return []
+    if not ner_provider_permitted():
+        return []
     try:
-        provider = get_provider(settings.ai_provider, settings)
+        provider = get_provider(settings.llm_ner_provider, settings)
         payload = _build_payload(text)
         result = await provider.complete(payload)
     except Exception:  # noqa: BLE001 - LLM pass must never break the request path

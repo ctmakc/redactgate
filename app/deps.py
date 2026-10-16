@@ -148,6 +148,14 @@ def get_detector(cfg: Settings = settings) -> Any:
     ``Detector`` reads configuration from ``app.config`` internally and takes no
     constructor args; ``cfg`` is accepted for DI/override symmetry but not passed.
     """
-    from app.redaction.detect import Detector
+    global _DETECTOR
+    if _DETECTOR is None:
+        from app.redaction.detect import Detector
 
-    return Detector()
+        # One process-wide instance: the Presidio/spaCy engine inside it takes seconds to
+        # load, so building a Detector per request added ~4 s to every call.
+        _DETECTOR = Detector()
+    return _DETECTOR
+
+
+_DETECTOR: Any = None
