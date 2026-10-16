@@ -1,10 +1,12 @@
+import "server-only";
+
 /**
  * RedactGate admin API client.
  *
- * Server Components / route handlers read `REDACTGATE_API_BASE`; client code reads
- * the build-time public `NEXT_PUBLIC_API_BASE`. The admin token is sent as the
- * `X-Admin-Token` header and is NEVER exposed to the browser bundle (it is only read
- * from `REDACTGATE_ADMIN_TOKEN` in server contexts).
+ * SERVER-ONLY. Server Components and server actions call the RedactGate admin API at
+ * `REDACTGATE_API_BASE` with the `X-Admin-Token` header (`REDACTGATE_ADMIN_TOKEN`). The
+ * token never reaches the browser, and every tenant-scoped call takes the team id that
+ * `lib/session.ts` derived from the verified Clerk session — never one from the client.
  *
  * IMPORTANT: RedactGate stores entity TYPE COUNTS only — raw detected values are never
  * persisted, returned, or rendered. Every shape below is counts/metadata only.
@@ -53,6 +55,8 @@ export interface AuditEvent {
   prompt_tokens: number | null;
   completion_tokens: number | null;
   latency_ms: number | null;
+  /** HMAC link in the team's append-only hash chain */
+  event_hash?: string;
   created_at: string;
 }
 
@@ -91,29 +95,13 @@ export interface BenchmarkRow {
 
 // ── Configuration ────────────────────────────────────────────────────────────
 
-const SERVER_BASE =
+const SERVER_BASE = (
   process.env.REDACTGATE_API_BASE ??
   process.env.NEXT_PUBLIC_API_BASE ??
-  "http://localhost:8080";
-
-const CLIENT_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "/api/proxy";
+  "http://localhost:8080"
+).replace(/\/$/, "");
 
 const ADMIN_TOKEN = process.env.REDACTGATE_ADMIN_TOKEN ?? "";
-
-function isServer(): boolean {
-  return typeof window === "undefined";
-}
-
-function baseUrl(): string {
-  return isServer() ? SERVER_BASE : CLIENT_BASE;
-}
-
-function headers(extra?: HeadersInit): HeadersInit {
-  const h: Record<string, string> = { "Content-Type": "application/json" };
-  // Only attach the admin token server-side so it never ships to the browser.
-  if (isServer() && ADMIN_TOKEN) h["X-Admin-Token"] = ADMIN_TOKEN;
-  return { ...h, ...(extra as Record<string, string> | undefined) };
-}
 
 export class ApiError extends Error {
   status: number;
@@ -125,16 +113,20 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const url = `${baseUrl().replace(/\/$/, "")}${path}`;
+  const url = `${SERVER_BASE}${path}`;
   let res: Response;
   try {
     res = await fetch(url, {
       ...init,
-      headers: headers(init?.headers),
+      headers: {
+        "Content-Type": "application/json",
+        ...(ADMIN_TOKEN ? { "X-Admin-Token": ADMIN_TOKEN } : {}),
+        ...(init?.headers as Record<string, string> | undefined),
+      },
       cache: "no-store",
     });
   } catch (err) {
-    throw new ApiError(0, `network error reaching ${url}: ${String(err)}`);
+    throw new ApiError(0, `network error reaching the gateway: ${String(err)}`);
   }
   if (!res.ok) {
     const body = await res.text().catch(() => "");
@@ -143,11 +135,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await res.json()) as T;
 }
 
-// ── Endpoints ────────────────────────────────────────────────────────────────
-
-// The backend `/admin/*` endpoints return lean, list-wrapped shapes
-// (`{requests, entities_by_type:{...}, by_provider:{...}}`, `{items:[...]}`); these
-// adapters transform them into the richer view models the pages consume.
+// ── Endpoints (all tenant-scoped by teamId) ──────────────────────────────────
 
 interface RawStats {
   requests: number;
@@ -158,8 +146,8 @@ interface RawStats {
   by_provider: Record<string, number>;
 }
 
-export async function getStats(): Promise<DashboardStats> {
-  const raw = await request<RawStats>("/admin/stats");
+export async function getStats(teamId: string): Promise<DashboardStats> {
+  const raw = await request<RawStats>(`/admin/teams/${encodeURIComponent(teamId)}/stats`);
   const entity_breakdown: EntityTypeCount[] = Object.entries(raw.entities_by_type ?? {})
     .map(([entity_type, count]) => ({ entity_type, count }))
     .sort((a, b) => b.count - a.count);
@@ -188,18 +176,18 @@ export async function getStats(): Promise<DashboardStats> {
 }
 
 export async function getAudit(params: {
+  teamId: string;
   page?: number;
   pageSize?: number;
-  q?: string;
   provider?: string;
   blocked?: boolean;
-} = {}): Promise<AuditPage> {
+}): Promise<AuditPage> {
   const pageSize = params.pageSize ?? 50;
   const page = params.page ?? 1;
   const sp = new URLSearchParams();
+  sp.set("team", params.teamId);
   sp.set("limit", String(pageSize));
   sp.set("offset", String((page - 1) * pageSize));
-  if (params.q) sp.set("q", params.q);
   if (params.provider) sp.set("provider", params.provider);
   if (params.blocked !== undefined) sp.set("blocked", String(params.blocked));
   const raw = await request<{ total: number; limit: number; offset: number; items: AuditEvent[] }>(
@@ -208,15 +196,37 @@ export async function getAudit(params: {
   return { items: raw.items ?? [], total: raw.total ?? 0, page, page_size: pageSize };
 }
 
-export async function getPolicies(): Promise<Policy[]> {
-  const raw = await request<{ items: Policy[] }>("/admin/policies");
-  return raw.items ?? [];
+export interface ChainCheck {
+  ok: boolean;
+  events: number;
+  checked_at: string;
 }
 
-export function createPolicy(body: PolicyCreate): Promise<Policy> {
-  return request<Policy>("/admin/policies", {
+export function verifyChain(teamId: string): Promise<ChainCheck> {
+  return request<ChainCheck>(`/admin/teams/${encodeURIComponent(teamId)}/audit/verify`);
+}
+
+export interface TeamPolicies {
+  active_policy_id: string | null;
+  items: Policy[];
+}
+
+export async function getTeamPolicies(teamId: string): Promise<TeamPolicies> {
+  const raw = await request<TeamPolicies>(`/admin/teams/${encodeURIComponent(teamId)}/policies`);
+  return { active_policy_id: raw.active_policy_id ?? null, items: raw.items ?? [] };
+}
+
+export function createTeamPolicy(teamId: string, body: PolicyCreate & { activate?: boolean }): Promise<Policy> {
+  return request<Policy>(`/admin/teams/${encodeURIComponent(teamId)}/policies`, {
     method: "POST",
     body: JSON.stringify(body),
+  });
+}
+
+export function activatePolicy(teamId: string, policyId: string): Promise<unknown> {
+  return request(`/admin/teams/${encodeURIComponent(teamId)}/policy`, {
+    method: "PUT",
+    body: JSON.stringify({ policy_id: policyId }),
   });
 }
 
@@ -225,11 +235,67 @@ export async function getBenchmark(): Promise<BenchmarkRow[]> {
   return raw.items ?? [];
 }
 
-/** Base URL used by the in-app proxy route handler. */
-export function serverApiBase(): string {
-  return SERVER_BASE;
+// ── Playground (explain view) ────────────────────────────────────────────────
+
+export interface ExplainSpan {
+  start: number;
+  end: number;
+  type: string;
+  source: string;
+  score: number;
 }
 
-export function serverAdminToken(): string {
-  return ADMIN_TOKEN;
+export interface PlaygroundResult {
+  answer: string;
+  finishReason: string | null;
+  usage: { prompt_tokens?: number; completion_tokens?: number } | null;
+  explain: {
+    session_id: string;
+    provider: string;
+    model: string | null;
+    fallback_from: { provider: string; status: number; error: string }[];
+    entity_counts: Record<string, number>;
+    inputs: { text: string; spans: ExplainSpan[] }[];
+    upstream_messages: { role: string; content: string }[];
+    upstream_answer: string | null;
+    latency_ms: number;
+  };
+  remaining: number | null;
+}
+
+export async function runPlayground(teamId: string, prompt: string): Promise<PlaygroundResult> {
+  const url = `${SERVER_BASE}/admin/playground`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(ADMIN_TOKEN ? { "X-Admin-Token": ADMIN_TOKEN } : {}),
+    },
+    body: JSON.stringify({ team_id: teamId, prompt }),
+    cache: "no-store",
+  });
+  const text = await res.text();
+  if (!res.ok) {
+    let message = text;
+    try {
+      const j = JSON.parse(text) as { error?: { message?: string }; detail?: string };
+      message = j.error?.message ?? j.detail ?? text;
+    } catch {
+      /* keep raw text */
+    }
+    throw new ApiError(res.status, message);
+  }
+  const body = JSON.parse(text) as {
+    choices: { message: { content: string }; finish_reason: string | null }[];
+    usage?: { prompt_tokens?: number; completion_tokens?: number };
+    redactgate: PlaygroundResult["explain"];
+  };
+  const remaining = res.headers.get("X-Playground-Remaining");
+  return {
+    answer: body.choices?.[0]?.message?.content ?? "",
+    finishReason: body.choices?.[0]?.finish_reason ?? null,
+    usage: body.usage ?? null,
+    explain: body.redactgate,
+    remaining: remaining === null ? null : Number(remaining),
+  };
 }

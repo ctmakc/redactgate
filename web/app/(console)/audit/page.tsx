@@ -3,7 +3,10 @@ import { EntityCounts } from "@/components/EntityCounts";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { PageHeader } from "@/components/PageHeader";
 import { Pagination } from "@/components/Pagination";
-import { getAudit, type AuditPage } from "@/lib/api";
+import { IntegrityStrip } from "@/components/IntegrityStrip";
+import { getAudit, verifyChain, type AuditPage } from "@/lib/api";
+import { requireSession } from "@/lib/session";
+import { redirect } from "next/navigation";
 import { FALLBACK_AUDIT } from "@/lib/fallback";
 import { dateTime, ms } from "@/lib/format";
 
@@ -22,9 +25,10 @@ export default async function AuditPageRoute({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
+  const session = await requireSession();
+  if (!session.can.readAudit) redirect("/");
   const sp = await searchParams;
   const page = Math.max(1, Number(one(sp.page) ?? "1") || 1);
-  const q = one(sp.q);
   const provider = one(sp.provider);
   const blockedStr = one(sp.blocked);
   const blocked =
@@ -32,14 +36,19 @@ export default async function AuditPageRoute({
 
   let data: AuditPage = { ...FALLBACK_AUDIT, page };
   let offline: string | null = null;
+  let verified: boolean | null = null;
   try {
-    data = await getAudit({ page, pageSize: PAGE_SIZE, q, provider, blocked });
+    const [d, chain] = await Promise.all([
+      getAudit({ teamId: session.teamId, page, pageSize: PAGE_SIZE, provider, blocked }),
+      verifyChain(session.teamId),
+    ]);
+    data = d;
+    verified = chain.ok;
   } catch (err) {
     offline = err instanceof Error ? err.message : "unknown error";
   }
 
   const baseParams = new URLSearchParams();
-  if (q) baseParams.set("q", q);
   if (provider) baseParams.set("provider", provider);
   if (blockedStr) baseParams.set("blocked", blockedStr);
 
@@ -47,14 +56,18 @@ export default async function AuditPageRoute({
     <div>
       <PageHeader
         title="Audit log"
-        subtitle="Tamper-evident, hash-chained request ledger. Only entity TYPE COUNTS are recorded — raw values are never stored or shown."
+        subtitle="Tamper-evident, hash-chained request ledger for this firm. Only entity type counts are recorded; raw values are never stored or shown."
       />
+
+      <div className="mb-4">
+        <IntegrityStrip entries={data.total} head={data.items[0]?.event_hash ?? null} verified={verified} />
+      </div>
 
       {offline ? <OfflineBanner detail={offline} /> : null}
 
       <AuditControls />
 
-      <div className="overflow-hidden rounded-xl border border-rule bg-leaf shadow-card">
+      <div className="panel overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse">
             <thead className="border-b border-rule bg-vellum">
@@ -95,13 +108,9 @@ export default async function AuditPageRoute({
                     </td>
                     <td className="td">
                       {ev.blocked ? (
-                        <span className="badge bg-vermillion/10 text-vermillion">
-                          blocked
-                        </span>
+                        <span className="stamp-block">blocked</span>
                       ) : (
-                        <span className="badge bg-seal/10 text-seal">
-                          allowed
-                        </span>
+                        <span className="stamp-seal">sealed</span>
                       )}
                     </td>
                     <td className="td whitespace-nowrap tabular-nums text-graphite">

@@ -6,14 +6,12 @@ import { useState } from "react";
 export function AuditControls() {
   const router = useRouter();
   const params = useSearchParams();
-  const [q, setQ] = useState(params.get("q") ?? "");
   const [provider, setProvider] = useState(params.get("provider") ?? "");
   const [blocked, setBlocked] = useState(params.get("blocked") ?? "");
 
   function apply(e: React.FormEvent) {
     e.preventDefault();
     const sp = new URLSearchParams();
-    if (q) sp.set("q", q);
     if (provider) sp.set("provider", provider);
     if (blocked) sp.set("blocked", blocked);
     sp.set("page", "1");
@@ -21,7 +19,6 @@ export function AuditControls() {
   }
 
   function reset() {
-    setQ("");
     setProvider("");
     setBlocked("");
     router.push("/audit");
@@ -30,21 +27,10 @@ export function AuditControls() {
   return (
     <form
       onSubmit={apply}
-      className="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-rule bg-leaf p-4 shadow-card"
+      className="panel mb-4 flex flex-wrap items-end gap-3 p-4"
     >
-      <label className="flex-1 min-w-[180px]">
-        <span className="mb-1 block text-xs font-medium text-graphite">
-          Search route / provider
-        </span>
-        <input
-          className="input"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="/v1/chat/completions"
-        />
-      </label>
       <label className="min-w-[140px]">
-        <span className="mb-1 block text-xs font-medium text-graphite">
+        <span className="eyebrow mb-1 block">
           Provider
         </span>
         <input
@@ -55,7 +41,7 @@ export function AuditControls() {
         />
       </label>
       <label className="min-w-[120px]">
-        <span className="mb-1 block text-xs font-medium text-graphite">
+        <span className="eyebrow mb-1 block">
           Blocked
         </span>
         <select

@@ -3,7 +3,8 @@ import { IntegrityStrip } from "@/components/IntegrityStrip";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { PageHeader } from "@/components/PageHeader";
 import { RedactionLedger } from "@/components/RedactionLedger";
-import { getAudit, getStats, type DashboardStats } from "@/lib/api";
+import { getAudit, getStats, verifyChain, type DashboardStats } from "@/lib/api";
+import { requireSession } from "@/lib/session";
 import { FALLBACK_STATS } from "@/lib/fallback";
 import { ms, num, pct } from "@/lib/format";
 
@@ -30,17 +31,23 @@ function StatTile({
 }
 
 export default async function DashboardPage() {
+  const session = await requireSession();
   let stats: DashboardStats = FALLBACK_STATS;
   let offline: string | null = null;
   let head: string | null = null;
+  let verified: boolean | null = null;
   try {
-    stats = await getStats();
+    stats = await getStats(session.teamId);
   } catch (err) {
     offline = err instanceof Error ? err.message : "unknown error";
   }
   try {
-    const page = await getAudit({ pageSize: 1 });
+    const [page, chain] = await Promise.all([
+      getAudit({ teamId: session.teamId, pageSize: 1 }),
+      verifyChain(session.teamId),
+    ]);
     head = (page.items[0] as { event_hash?: string } | undefined)?.event_hash ?? null;
+    verified = chain.ok;
   } catch {
     head = null;
   }
@@ -50,14 +57,14 @@ export default async function DashboardPage() {
   return (
     <div>
       <PageHeader
-        title="Dashboard"
-        subtitle="redaction volume · counts only · raw values never stored"
+        title={session.orgName}
+        subtitle="your firm's redaction volume · counts only · raw values never stored"
       />
 
       {offline ? <OfflineBanner detail={offline} /> : null}
 
       <div className="mb-5">
-        <IntegrityStrip entries={stats.total_requests} head={head} verified />
+        <IntegrityStrip entries={stats.total_requests} head={head} verified={verified} />
       </div>
 
       {/* Hero: the redaction ledger — the most characteristic first thing. */}
