@@ -5,15 +5,24 @@ back:
 
 - ``system`` messages are pulled out into the top-level ``system`` field.
 - remaining messages map to ``{role, content}`` (only ``user``/``assistant`` roles).
-- ``max_tokens`` is required by the API; default to 1024 when absent.
-- non-stream: ``response.content[0].text`` becomes the assistant message content.
+- ``max_tokens`` is required by the API; default to 4096 when absent (current models think
+  adaptively and thinking tokens count against ``max_tokens``).
+- sampling knobs (``temperature``/``top_p``) are forwarded only to models that still accept
+  them; Claude 4.7+ / 5.x reject them with a 400, so they are dropped there.
+- OpenAI ``reasoning_effort`` maps to ``output_config.effort``; ``stop`` to ``stop_sequences``.
+- non-stream: text blocks are joined into the assistant message content (thinking blocks
+  are skipped).
 - stream: Anthropic SSE events (``content_block_delta`` -> ``text_delta``) become chunk
-  deltas; ``message_delta.stop_reason`` becomes the final ``finish_reason``.
+  deltas; ``message_delta.stop_reason`` becomes the final ``finish_reason``; token usage
+  from ``message_start``/``message_delta`` is attached to the final chunk; an in-stream
+  ``error`` event raises ``ProviderError``.
+- ``stop_reason: refusal`` maps to ``finish_reason: content_filter``.
 """
 
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import AsyncIterator
 from typing import Any
 
@@ -23,7 +32,22 @@ from app.config import Settings
 from app.gateway.base import Provider, ProviderError, register_provider
 from app.gateway.openai import build_chunk, build_completion, is_generic_model, new_id
 
-_DEFAULT_MAX_TOKENS = 1024
+_DEFAULT_MAX_TOKENS = 4096
+
+# Models that still accept temperature/top_p: Claude 3.x and Claude 4.0-4.6 (incl. dated
+# snapshots). Claude 4.7+, 5.x and Fable reject sampling parameters with a 400.
+_SAMPLING_MODELS = re.compile(r"^claude-(3[\w.-]*|(opus|sonnet|haiku)-4(-[0-6])?(-\d{8})?)$")
+
+_EFFORTS = {"low", "medium", "high", "xhigh", "max"}
+
+# Anthropic error.type -> HTTP status we surface (529 "overloaded" is not a standard code).
+_ERROR_STATUS = {
+    "overloaded_error": 503,
+    "rate_limit_error": 429,
+    "authentication_error": 502,
+    "permission_error": 502,
+    "api_error": 502,
+}
 
 # Anthropic stop_reason -> OpenAI finish_reason
 _STOP_MAP = {
@@ -31,7 +55,33 @@ _STOP_MAP = {
     "stop_sequence": "stop",
     "max_tokens": "length",
     "tool_use": "tool_calls",
+    "refusal": "content_filter",
+    "pause_turn": "stop",
 }
+
+
+def accepts_sampling(model: str) -> bool:
+    """True when ``model`` still accepts ``temperature``/``top_p``."""
+    return bool(_SAMPLING_MODELS.match(model))
+
+
+def _error_message(raw: str | bytes) -> tuple[str, str | None]:
+    """Extract (message, error.type) from an Anthropic error body, tolerating non-JSON."""
+    text = raw.decode("utf-8", "replace") if isinstance(raw, bytes) else raw
+    try:
+        err = (json.loads(text) or {}).get("error") or {}
+        return str(err.get("message") or text)[:300], err.get("type")
+    except (json.JSONDecodeError, ValueError, AttributeError):
+        return text[:300], None
+
+
+def _raise_upstream(status: int, raw: str | bytes) -> None:
+    message, etype = _error_message(raw)
+    code = _ERROR_STATUS.get(etype or "", status if status != 529 else 503)
+    # Upstream credentials/permission problems are OUR misconfiguration, not the caller's.
+    if status in (401, 403):
+        code = 502
+    raise ProviderError(f"upstream error: {message}", status_code=code, provider="anthropic")
 
 
 def _content_to_text(content: Any) -> str:
@@ -79,7 +129,11 @@ class AnthropicProvider(Provider):
 
     def _resolve_model(self, payload: dict[str, Any]) -> str:
         model = payload.get("model")
-        return self._default_model if is_generic_model(model) else str(model)
+        # The provider is chosen by gateway config, not the caller: an OpenAI SDK client
+        # asking for "gpt-4o-mini" gets the configured Claude model instead of a 404.
+        if is_generic_model(model) or not str(model).startswith("claude"):
+            return self._default_model
+        return str(model)
 
     def _headers(self) -> dict[str, str]:
         return {
@@ -98,8 +152,18 @@ class AnthropicProvider(Provider):
         }
         if system:
             body["system"] = system
-        if payload.get("temperature") is not None:
-            body["temperature"] = payload["temperature"]
+        if accepts_sampling(body["model"]):
+            for knob in ("temperature", "top_p"):
+                if payload.get(knob) is not None:
+                    body[knob] = payload[knob]
+        effort = payload.get("reasoning_effort")
+        if isinstance(effort, str) and effort.lower() in _EFFORTS:
+            body["output_config"] = {"effort": effort.lower()}
+        stop = payload.get("stop")
+        if isinstance(stop, str):
+            stop = [stop]
+        if isinstance(stop, list) and stop:
+            body["stop_sequences"] = [str(x) for x in stop][:4]
         return body
 
     async def complete(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -113,11 +177,7 @@ class AnthropicProvider(Provider):
             except httpx.HTTPError as exc:
                 raise ProviderError(str(exc), status_code=502, provider=self.name) from exc
             if resp.status_code >= 400:
-                raise ProviderError(
-                    f"upstream error: {resp.text[:200]}",
-                    status_code=resp.status_code,
-                    provider=self.name,
-                )
+                _raise_upstream(resp.status_code, resp.text)
             try:
                 data = resp.json()
             except (json.JSONDecodeError, ValueError) as exc:
@@ -143,18 +203,15 @@ class AnthropicProvider(Provider):
         model = self._resolve_model(payload)
         completion_id = new_id()
         finish_reason = "stop"
+        prompt_tokens = 0
+        completion_tokens = 0
         async with httpx.AsyncClient(timeout=self.settings.upstream_timeout_seconds) as client:
             try:
                 async with client.stream(
                     "POST", url, json=self._body(payload, stream=True), headers=self._headers()
                 ) as resp:
                     if resp.status_code >= 400:
-                        body = await resp.aread()
-                        raise ProviderError(
-                            f"upstream error: {body[:200]!r}",
-                            status_code=resp.status_code,
-                            provider=self.name,
-                        )
+                        _raise_upstream(resp.status_code, await resp.aread())
                     async for raw in resp.aiter_lines():
                         line = raw.strip()
                         if not line.startswith("data:"):
@@ -167,7 +224,17 @@ class AnthropicProvider(Provider):
                         except json.JSONDecodeError:
                             continue
                         etype = event.get("type")
-                        if etype == "content_block_delta":
+                        if etype == "error":
+                            err = event.get("error") or {}
+                            raise ProviderError(
+                                f"upstream error: {str(err.get('message') or 'stream error')[:300]}",
+                                status_code=_ERROR_STATUS.get(err.get("type") or "", 502),
+                                provider=self.name,
+                            )
+                        if etype == "message_start":
+                            usage = (event.get("message") or {}).get("usage") or {}
+                            prompt_tokens = int(usage.get("input_tokens") or 0)
+                        elif etype == "content_block_delta":
                             delta = event.get("delta") or {}
                             if delta.get("type") == "text_delta":
                                 text = delta.get("text") or ""
@@ -181,13 +248,22 @@ class AnthropicProvider(Provider):
                             stop = (event.get("delta") or {}).get("stop_reason")
                             if stop:
                                 finish_reason = _STOP_MAP.get(stop, "stop")
+                            usage = event.get("usage") or {}
+                            if usage.get("output_tokens") is not None:
+                                completion_tokens = int(usage["output_tokens"])
                         elif etype == "message_stop":
                             break
-                    yield build_chunk(
+                    final = build_chunk(
                         model=model,
                         finish_reason=finish_reason,
                         completion_id=completion_id,
                     )
+                    final["usage"] = {
+                        "prompt_tokens": prompt_tokens,
+                        "completion_tokens": completion_tokens,
+                        "total_tokens": prompt_tokens + completion_tokens,
+                    }
+                    yield final
             except httpx.HTTPError as exc:
                 raise ProviderError(str(exc), status_code=502, provider=self.name) from exc
 
