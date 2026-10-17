@@ -8,14 +8,18 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 
 import httpx
 import pytest
 import respx
 
+from app import config as app_config
 from app.config import settings as cfg
 from app.gateway.base import Provider, ProviderError, register_provider, reset_provider_cache
+from app.redaction.detect import Detector
+from app.redaction.regex_packs import load_packs
 from tests.test_proxy_e2e import SIN, audit, fake_provider, make_client, store  # noqa: F401
 
 # ── 1. fallback model resolution ──────────────────────────────────────────────────
@@ -75,3 +79,59 @@ def test_fallback_gets_its_own_model_not_the_callers(primary_down_ollama_fallbac
     assert resp.status_code == 200, resp.text
     assert json.loads(route.calls.last.request.content)["model"] == "qwen2.5:latest"
     assert resp.json()["choices"][0]["message"]["content"] == f"ok: SIN {SIN}"
+
+
+# ── 3. birth dates in words ───────────────────────────────────────────────────────
+
+WORD_DOBS = [
+    ("date of birth: March 3, 1980", "March 3, 1980"),
+    ("DOB Mar. 3 1980", "Mar. 3 1980"),
+    ("born on 3 March 1980 in Ottawa", "3 March 1980"),
+    ("born on the 3rd of March, 1980", "3rd of March, 1980"),
+    ("birthdate: September 21st, 1975", "September 21st, 1975"),
+    ("date de naissance : 3 mars 1980", "3 mars 1980"),
+    ("née le 1er août 1979", "1er août 1979"),
+    ("dob: 3/7/1980", "3/7/1980"),
+]
+
+
+def _generic(text: str) -> dict[str, list[str]]:
+    out: dict[str, list[str]] = {}
+    for pack in load_packs(["GENERIC"]):
+        for sp in pack.detect(text):
+            out.setdefault(sp.entity_type, []).append(sp.text)
+    return out
+
+
+@pytest.mark.parametrize(("text", "value"), WORD_DOBS)
+def test_dob_written_in_words_is_detected(text, value):
+    assert value in _generic(text).get("DATE_OF_BIRTH", []), _generic(text)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "the return was filed on March 3, 1980",  # no birth cue
+        "meeting on 3 March 2026",
+        "tax year 2025 ends December 31, 2025",
+    ],
+)
+def test_word_dates_without_birth_cue_are_left_alone(text):
+    assert "DATE_OF_BIRTH" not in _generic(text)
+
+
+def _presidio_available() -> bool:
+    from app.redaction.presidio_ner import PresidioDetector
+
+    return PresidioDetector().available
+
+
+@pytest.mark.skipif(not _presidio_available(), reason="presidio/spaCy not installed")
+@pytest.mark.parametrize(("text", "value"), WORD_DOBS[:5])
+def test_dob_in_words_redacted_with_presidio_enabled(monkeypatch, text, value):
+    """The demo runs with ENABLE_PRESIDIO=true; the date must still be a DOB span there."""
+    monkeypatch.setattr(app_config.settings, "enable_presidio", True, raising=False)
+    monkeypatch.setattr(app_config.settings, "enable_llm_ner", False, raising=False)
+    result = asyncio.run(Detector().detect(f"Client file. {text}.", pack_codes=["GENERIC", "CA"]))
+    dob = [s.text for s in result.spans if s.entity_type == "DATE_OF_BIRTH"]
+    assert value in dob, [(s.entity_type, s.text, s.source) for s in result.spans]
