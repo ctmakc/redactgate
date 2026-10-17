@@ -63,7 +63,9 @@ patterns:
     description: "Bank account number after an account cue"
   - type: POSTAL_CODE
     # Canadian postal code (letters exclude D F I O Q U; first letter also excludes W Z).
+    # Case-insensitive: people type "m5j 2g2" too (Codex review on PR #1).
     regex: '\b[ABCEGHJ-NPRSTVXY]\d[ABCEGHJ-NPRSTV-Z][ -]?\d[ABCEGHJ-NPRSTV-Z]\d\b'
+    flags: IGNORECASE
     description: "Canadian postal code"
   - type: ADDRESS
     # Civic street address: number + 1-3 capitalized words + a street type, e.g.

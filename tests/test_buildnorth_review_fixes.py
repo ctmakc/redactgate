@@ -135,3 +135,18 @@ def test_dob_in_words_redacted_with_presidio_enabled(monkeypatch, text, value):
     result = asyncio.run(Detector().detect(f"Client file. {text}.", pack_codes=["GENERIC", "CA"]))
     dob = [s.text for s in result.spans if s.entity_type == "DATE_OF_BIRTH"]
     assert value in dob, [(s.entity_type, s.text, s.source) for s in result.spans]
+
+
+# ── 4. lowercase postal codes ─────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    ("text", "value"),
+    [("lives in toronto m5j 2g2", "m5j 2g2"), ("Code: k1a0b1", "k1a0b1"), ("H2X-1Y4 Montreal", "H2X-1Y4")],
+)
+def test_postal_code_any_case(text, value):
+    found: dict[str, list[str]] = {}
+    for pack in load_packs(["CA"]):
+        for sp in pack.detect(text):
+            found.setdefault(sp.entity_type, []).append(sp.text)
+    assert value in found.get("POSTAL_CODE", []), found
