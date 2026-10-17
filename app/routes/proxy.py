@@ -232,6 +232,15 @@ def fallback_chain(primary: Provider, decision: PolicyDecision) -> list[Provider
     return chain
 
 
+def for_fallback(payload: dict[str, Any], candidate: Provider) -> dict[str, Any]:
+    """The payload as a fallback provider should receive it: with that provider's own model.
+
+    The caller's model name belongs to the primary (``gpt-4o-mini``, ``claude-opus-5-5``);
+    a fallback such as Ollama would take it literally and fail with model-not-found.
+    """
+    return {**payload, "model": candidate.default_model() or "default"}
+
+
 async def process_payload(
     payload: dict[str, Any],
     route: str,
@@ -314,9 +323,11 @@ async def process_payload(
     # ── Non-streaming (with policy-safe provider fallback) ──
     completion: dict[str, Any] | None = None
     failures: list[dict[str, Any]] = []
-    for candidate in fallback_chain(provider, decision):
+    for i, candidate in enumerate(fallback_chain(provider, decision)):
         try:
-            completion = await candidate.complete(sanitized)
+            completion = await candidate.complete(
+                sanitized if i == 0 else for_fallback(sanitized, candidate)
+            )
             provider_name = _provider_name(candidate)
             break
         except ProviderError as exc:
