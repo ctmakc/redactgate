@@ -40,7 +40,7 @@ class Settings(BaseSettings):
     # Per-provider credentials / endpoints. Empty string = unconfigured.
     anthropic_api_key: str = ""
     anthropic_base_url: str = "https://api.anthropic.com"
-    anthropic_default_model: str = "claude-sonnet-4-6"
+    anthropic_default_model: str = "claude-opus-5-5"
     openai_api_key: str = ""
     openai_base_url: str = "https://api.openai.com/v1"
     openai_default_model: str = "gpt-4o-mini"
@@ -60,10 +60,17 @@ class Settings(BaseSettings):
     ollama_default_model: str = "llama3.1"
 
     upstream_timeout_seconds: float = 120.0
+    # Comma list tried in order when the primary provider fails (non-streaming requests).
+    # Each must also be on the policy's allow-list. e.g. "ollama" = local air-gapped model.
+    ai_fallback_providers: str = ""
 
     # ── Detection ─────────────────────────────────────────────────────────
     enable_presidio: bool = False  # heavy; opt-in via the `ner` extra
-    enable_llm_ner: bool = False  # uses the configured provider for an NER pass
+    enable_llm_ner: bool = False  # adds an LLM entity-extraction pass (names, addresses)
+    # The NER pass sees RAW text, so it runs on a LOCAL model by default. A cloud provider
+    # here would ship unredacted text out of the perimeter; that needs an explicit opt-in.
+    llm_ner_provider: str = "ollama"
+    llm_ner_allow_cloud: bool = False
     presidio_languages: str = "en"  # comma list e.g. "en,uk"
     default_pack_codes: str = "GENERIC,CA,US,EU,UA"  # comma list of jurisdiction packs
 
@@ -81,6 +88,7 @@ class Settings(BaseSettings):
     # ── Auth ──────────────────────────────────────────────────────────────
     admin_token: str = ""  # gates the admin API/UI when set
     require_api_key: bool = True  # if False, a default dev team/policy is used
+    playground_daily_limit: int = 40  # admin playground runs per team per 24 h
 
     # ── Hardening ─────────────────────────────────────────────────────────
     max_body_bytes: int = 2_000_000  # reject request bodies larger than this (413)

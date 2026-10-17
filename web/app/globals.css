@@ -7,13 +7,51 @@
    Hairline-ruled, flat. The redaction bar is the material; the token is the atom. */
 
 :root {
-  --bg: #ece7dd;
-  --surface: #f6f2ea;
-  --ink: #16140f;
-  --ink-2: #4a463c;
-  --rule: #c9c2b2;
-  --seal: #1b6e78;
-  --vermillion: #a8331f;
+  /* light — office-stock paper (RGB channels for Tailwind alpha) */
+  --c-vellum: 236 231 221;
+  --c-leaf: 246 242 234;
+  --c-carbon: 22 20 15;
+  --c-graphite: 74 70 60;
+  --c-rule: 201 194 178;
+  --c-seal: 27 110 120;
+  --c-vermillion: 168 51 31;
+  --c-highlight: 255 255 255;
+  color-scheme: light;
+
+  --bg: rgb(var(--c-vellum));
+  --surface: rgb(var(--c-leaf));
+  --ink: rgb(var(--c-carbon));
+  --ink-2: rgb(var(--c-graphite));
+  --rule: rgb(var(--c-rule));
+  --seal: rgb(var(--c-seal));
+  --vermillion: rgb(var(--c-vermillion));
+}
+
+/* night — the vault: warm black casing, bleached-paper ink, lit seal. The redaction bar
+   becomes a bleached strip (ink colour), so it still reads as "covered". */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --c-vellum: 20 19 15;
+    --c-leaf: 30 28 22;
+    --c-carbon: 232 227 214;
+    --c-graphite: 163 157 143;
+    --c-rule: 56 53 44;
+    --c-seal: 79 179 188;
+    --c-vermillion: 217 88 63;
+    --c-highlight: 74 70 58;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --c-vellum: 20 19 15;
+  --c-leaf: 30 28 22;
+  --c-carbon: 232 227 214;
+  --c-graphite: 163 157 143;
+  --c-rule: 56 53 44;
+  --c-seal: 79 179 188;
+  --c-vermillion: 217 88 63;
+  --c-highlight: 74 70 58;
+  color-scheme: dark;
 }
 
 html,
@@ -32,7 +70,7 @@ body {
 
 @layer base {
   ::selection {
-    background: #1b6e7833;
+    background: rgb(var(--c-seal) / 0.2);
   }
   /* visible keyboard focus, seal-cyan inset, no glow */
   a:focus-visible,
@@ -120,7 +158,7 @@ body {
     height: 44px;
   }
   .ledger tbody tr:hover td {
-    background: #16140f08;
+    background: rgb(var(--c-carbon) / 0.03);
   }
   .mono-data {
     @apply font-mono text-small tabular-nums text-carbon;
@@ -255,7 +293,7 @@ body {
   bottom: 0;
   width: 1px;
   transform: translateX(-50%);
-  background: rgba(27, 110, 120, 0.45);
+  background: rgb(var(--c-seal) / 0.45);
 }
 .seam::after {
   content: "";
@@ -274,4 +312,183 @@ body {
     animation: none;
     clip-path: inset(0 0 0 0);
   }
+}
+
+/* ── Seal swap (auth specimen) — raw value, a carbon bar sweeps over it, the token is
+   left behind. One orchestrated pass on load; reduced-motion shows the sealed state. */
+.seal-swap {
+  position: relative;
+  display: inline-grid;
+  vertical-align: baseline;
+}
+.seal-swap > .seal-raw,
+.seal-swap > .seal-token {
+  grid-area: 1 / 1;
+  white-space: nowrap;
+}
+.seal-swap > .seal-token {
+  opacity: 0;
+  animation: seal-token-in 1ms linear forwards;
+  animation-delay: calc(var(--d) + 230ms);
+}
+.seal-swap > .seal-raw {
+  animation: seal-raw-out 1ms linear forwards;
+  animation-delay: calc(var(--d) + 230ms);
+}
+.seal-swap > .seal-bar {
+  position: absolute;
+  inset: 3px -2px;
+  background: var(--ink);
+  clip-path: inset(0 100% 0 0);
+  animation: seal-bar 520ms cubic-bezier(0.7, 0, 0.2, 1) forwards;
+  animation-delay: var(--d);
+}
+@keyframes seal-bar {
+  0% { clip-path: inset(0 100% 0 0); }
+  45% { clip-path: inset(0 0 0 0); }
+  55% { clip-path: inset(0 0 0 0); }
+  100% { clip-path: inset(0 0 0 100%); }
+}
+@keyframes seal-token-in { to { opacity: 1; } }
+@keyframes seal-raw-out { to { opacity: 0; } }
+.auth-title {
+  animation: rise 640ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.specimen {
+  animation: rise 640ms cubic-bezier(0.16, 1, 0.3, 1) 120ms both;
+}
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .seal-swap > .seal-token { animation: none; opacity: 1; }
+  .seal-swap > .seal-raw { animation: none; opacity: 0; }
+  .seal-swap > .seal-bar { display: none; }
+  .auth-title, .specimen { animation: none; }
+}
+
+/* ── Playground ─────────────────────────────────────────────────────────────── */
+.sample-chip {
+  @apply rounded-sm border border-rule bg-leaf px-2.5 py-1 font-mono text-micro text-carbon transition-colors;
+}
+.sample-chip:hover {
+  @apply border-carbon/40;
+}
+.sample-chip-on {
+  @apply border-seal text-carbon;
+  box-shadow: inset 2px 0 0 rgb(var(--c-seal));
+}
+
+/* pane 1: a detected value sits on a carbon redaction rule with its type tagged after it */
+mark.ent {
+  background: transparent;
+  color: inherit;
+  padding: 0 1px;
+  box-shadow: inset 0 -2px 0 rgb(var(--c-carbon) / 0.9);
+}
+.ent-tag {
+  margin-left: 3px;
+  padding: 0 3px;
+  border-radius: 2px;
+  background: rgb(var(--c-carbon));
+  color: rgb(var(--c-leaf));
+  font: 500 9.5px/14px var(--font-geist-mono), ui-monospace, monospace;
+  vertical-align: 1px;
+  white-space: nowrap;
+}
+
+/* the vertical perimeter between "inside" and "what left" */
+.perimeter-v {
+  display: none;
+}
+@media (min-width: 1280px) {
+  .perimeter-v {
+    display: flex;
+    position: relative;
+    width: 22px;
+    justify-content: center;
+  }
+  .perimeter-v::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    border-left: 1px dashed rgb(var(--c-carbon) / 0.45);
+  }
+  .perimeter-v span {
+    position: sticky;
+    top: 40%;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    background: var(--bg);
+    padding: 8px 0;
+    font: 500 11px/1 var(--font-geist-mono), ui-monospace, monospace;
+    color: rgb(var(--c-graphite));
+    white-space: nowrap;
+    height: max-content;
+  }
+}
+
+/* pane 2: each token seals in — a carbon bar covers then wipes off, staggered */
+.tok-seal {
+  position: relative;
+  display: inline;
+  padding: 1px 4px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+.tok-seal::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  background: rgb(var(--c-carbon));
+  clip-path: inset(0 0 0 0);
+  animation: tok-wipe 420ms cubic-bezier(0.7, 0, 0.2, 1) forwards;
+  animation-delay: calc(120ms + var(--i, 0) * 70ms);
+}
+@keyframes tok-wipe {
+  to { clip-path: inset(0 0 0 100%); }
+}
+
+/* pane 3: restored values marked in seal, underline draws in */
+.restored {
+  background-image: linear-gradient(rgb(var(--c-seal)), rgb(var(--c-seal)));
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  background-size: 0% 2px;
+  animation: restore-line 520ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation-delay: calc(500ms + var(--i, 0) * 60ms);
+  padding-bottom: 1px;
+}
+@keyframes restore-line {
+  to { background-size: 100% 2px; }
+}
+
+/* run button pending indicator — a small bar sweeping like a redaction pass */
+.run-bar {
+  position: relative;
+  display: inline-block;
+  width: 28px;
+  height: 8px;
+  overflow: hidden;
+  background: rgb(var(--c-leaf) / 0.25);
+}
+.run-bar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgb(var(--c-leaf));
+  animation: run-sweep 900ms cubic-bezier(0.7, 0, 0.2, 1) infinite;
+}
+@keyframes run-sweep {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tok-seal::after { display: none; }
+  .restored { animation: none; background-size: 100% 2px; }
+  .run-bar::before { animation: none; }
 }

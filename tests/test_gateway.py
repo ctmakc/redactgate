@@ -433,3 +433,132 @@ def test_default_model_reported_per_provider():
     assert AnthropicProvider(s).default_model() == "claude-test"
     assert GeminiProvider(s).default_model() == "gemini-test"
     assert DoGenAIProvider(s).default_model() == "do-default"
+
+
+# ── Anthropic: current-model request shape, refusals, in-stream errors, usage ─────
+
+
+def test_anthropic_sampling_gate_by_model():
+    from app.gateway.anthropic import accepts_sampling
+
+    for legacy in ("claude-sonnet-4-6", "claude-opus-4-6", "claude-haiku-4-5",
+                   "claude-sonnet-4-5-20250929", "claude-3-5-sonnet-20240620"):
+        assert accepts_sampling(legacy), legacy
+    for current in ("claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5",
+                    "claude-opus-4-7", "claude-opus-4-8", "claude-fable-5-1"):
+        assert not accepts_sampling(current), current
+
+
+@respx.mock
+async def test_anthropic_current_model_drops_temperature_and_maps_effort():
+    s = _settings(anthropic_default_model="claude-opus-5-5")
+    route = respx.post("https://api.anthropic.test/v1/messages").mock(
+        return_value=httpx.Response(
+            200,
+            json={"model": "claude-opus-5-5", "stop_reason": "end_turn",
+                  "content": [{"type": "thinking", "thinking": ""},
+                              {"type": "text", "text": "ok"}],
+                  "usage": {"input_tokens": 5, "output_tokens": 2}},
+        )
+    )
+    payload = _payload("gpt-4o-mini")  # generic name -> provider default model
+    payload.pop("max_tokens")
+    payload["reasoning_effort"] = "low"
+    payload["stop"] = "END"
+    out = await AnthropicProvider(s).complete(payload)
+    sent = json.loads(route.calls.last.request.content)
+    assert sent["model"] == "claude-opus-5-5"
+    assert "temperature" not in sent and "top_p" not in sent
+    assert sent["output_config"] == {"effort": "low"}
+    assert sent["stop_sequences"] == ["END"]
+    assert sent["max_tokens"] == 4096
+    # thinking blocks never leak into the answer
+    assert out["choices"][0]["message"]["content"] == "ok"
+
+
+@respx.mock
+async def test_anthropic_legacy_model_keeps_temperature():
+    s = _settings(anthropic_default_model="claude-sonnet-4-6")
+    route = respx.post("https://api.anthropic.test/v1/messages").mock(
+        return_value=httpx.Response(
+            200, json={"content": [{"type": "text", "text": "x"}], "stop_reason": "end_turn"}
+        )
+    )
+    await AnthropicProvider(s).complete(_payload("gpt-4o-mini"))
+    assert json.loads(route.calls.last.request.content)["temperature"] == 0.2
+
+
+@respx.mock
+async def test_anthropic_refusal_maps_to_content_filter():
+    s = _settings()
+    respx.post("https://api.anthropic.test/v1/messages").mock(
+        return_value=httpx.Response(
+            200, json={"content": [], "stop_reason": "refusal",
+                       "stop_details": {"type": "refusal", "category": "cyber"}}
+        )
+    )
+    out = await AnthropicProvider(s).complete(_payload())
+    assert out["choices"][0]["finish_reason"] == "content_filter"
+
+
+@respx.mock
+async def test_anthropic_error_body_message_and_status_mapping():
+    s = _settings()
+    respx.post("https://api.anthropic.test/v1/messages").mock(
+        return_value=httpx.Response(
+            529, json={"type": "error",
+                       "error": {"type": "overloaded_error", "message": "Overloaded"}}
+        )
+    )
+    with pytest.raises(ProviderError) as ei:
+        await AnthropicProvider(s).complete(_payload())
+    assert ei.value.status_code == 503
+    assert "Overloaded" in str(ei.value)
+
+
+@respx.mock
+async def test_anthropic_bad_key_is_gateway_error_not_client_401():
+    s = _settings()
+    respx.post("https://api.anthropic.test/v1/messages").mock(
+        return_value=httpx.Response(
+            401, json={"type": "error",
+                       "error": {"type": "authentication_error", "message": "invalid x-api-key"}}
+        )
+    )
+    with pytest.raises(ProviderError) as ei:
+        await AnthropicProvider(s).complete(_payload())
+    assert ei.value.status_code == 502
+
+
+@respx.mock
+async def test_anthropic_stream_usage_on_final_chunk():
+    s = _settings()
+    body = (
+        'data: {"type":"message_start","message":{"usage":{"input_tokens":21}}}\n\n'
+        'data: {"type":"content_block_delta","delta":{"type":"thinking_delta","thinking":"..."}}\n\n'
+        'data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"Hi"}}\n\n'
+        'data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":7}}\n\n'
+        'data: {"type":"message_stop"}\n\n'
+    )
+    respx.post("https://api.anthropic.test/v1/messages").mock(
+        return_value=httpx.Response(200, text=body)
+    )
+    chunks = await _collect(AnthropicProvider(s).stream(_payload(stream=True)))
+    text = "".join(c["choices"][0]["delta"].get("content", "") for c in chunks)
+    assert text == "Hi"  # thinking deltas are not forwarded
+    assert chunks[-1]["usage"] == {"prompt_tokens": 21, "completion_tokens": 7, "total_tokens": 28}
+
+
+@respx.mock
+async def test_anthropic_stream_error_event_raises():
+    s = _settings()
+    body = (
+        'data: {"type":"message_start","message":{"usage":{"input_tokens":3}}}\n\n'
+        'data: {"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}\n\n'
+    )
+    respx.post("https://api.anthropic.test/v1/messages").mock(
+        return_value=httpx.Response(200, text=body)
+    )
+    with pytest.raises(ProviderError) as ei:
+        await _collect(AnthropicProvider(s).stream(_payload(stream=True)))
+    assert ei.value.status_code == 503

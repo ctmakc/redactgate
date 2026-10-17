@@ -108,13 +108,22 @@ async def audit(
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
     team: str | None = Query(None),
+    provider: str | None = Query(None, max_length=40),
+    blocked: bool | None = Query(None),
 ) -> dict[str, Any]:
     """Paginated audit list (counts only — never raw values)."""
     stmt = select(AuditEvent).order_by(AuditEvent.id.desc())
     count_stmt = select(func.count()).select_from(AuditEvent)
+    filters = []
     if team:
-        stmt = stmt.where(AuditEvent.team_id == team)
-        count_stmt = count_stmt.where(AuditEvent.team_id == team)
+        filters.append(AuditEvent.team_id == team)
+    if provider:
+        filters.append(AuditEvent.provider == provider)
+    if blocked is not None:
+        filters.append(AuditEvent.blocked.is_(blocked))
+    if filters:
+        stmt = stmt.where(*filters)
+        count_stmt = count_stmt.where(*filters)
 
     total = (await session.execute(count_stmt)).scalar_one()
     rows = (await session.execute(stmt.limit(limit).offset(offset))).scalars().all()

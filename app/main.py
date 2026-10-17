@@ -47,6 +47,17 @@ async def lifespan(app: FastAPI):
         except Exception as exc:  # noqa: BLE001
             log.warning("default api key bootstrap skipped: %s", exc)
 
+        if settings.enable_presidio:
+            try:
+                import asyncio
+
+                from app.deps import get_detector
+
+                # Load spaCy/Presidio now so the first real request doesn't pay ~5 s.
+                await asyncio.to_thread(get_detector()._get_presidio)
+            except Exception as exc:  # noqa: BLE001
+                log.warning("presidio warm-up skipped: %s", exc)
+
         try:
             from app.db import session_scope as _ss
             from app.redaction.packs_loader import sync_packs_to_db
@@ -106,6 +117,7 @@ def create_app() -> FastAPI:
         ("app.routes.health", "router"),
         ("app.routes.proxy", "router"),
         ("app.routes.admin", "router"),
+        ("app.routes.tenants", "router"),
     ):
         try:
             mod = __import__(module_path, fromlist=[attr])

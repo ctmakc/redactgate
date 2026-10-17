@@ -6,7 +6,7 @@ import { useFormStatus } from "react-dom";
 import {
   submitPolicy,
   type PolicyFormState,
-} from "@/app/policies/actions";
+} from "@/app/(console)/policies/actions";
 
 const INITIAL: PolicyFormState = { ok: false, error: null };
 

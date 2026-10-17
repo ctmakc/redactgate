@@ -10,21 +10,15 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // light
-        vellum: "#ECE7DD", // bg — warm paper-neutral
-        leaf: "#F6F2EA", // raised records-paper surface
-        carbon: "#16140F", // near-black warm ink + the redaction bar
-        graphite: "#4A463C", // secondary ink
-        rule: "#C9C2B2", // 1px hairline
-        seal: "#1B6E78", // SIGNAL: sealed & reversible (tokens, focus, active nav)
-        vermillion: "#A8331F", // hard-block / tamper stamp
-        // dark
-        vault: "#14130F", // bg
-        casing: "#1E1C16", // surface
-        bleach: "#E8E3D6", // paper-white text
-        seam: "#38352C", // hairline
-        "seal-lit": "#4FB3BC",
-        "vermillion-lit": "#D9583F",
+        // Every surface/ink colour is a CSS variable (RGB channels) so the whole console
+        // flips to the "vault" night palette under prefers-color-scheme: dark.
+        vellum: "rgb(var(--c-vellum) / <alpha-value>)", // bg — warm paper / vault
+        leaf: "rgb(var(--c-leaf) / <alpha-value>)", // raised records-paper surface / casing
+        carbon: "rgb(var(--c-carbon) / <alpha-value>)", // ink + the redaction bar / bleach
+        graphite: "rgb(var(--c-graphite) / <alpha-value>)", // secondary ink
+        rule: "rgb(var(--c-rule) / <alpha-value>)", // 1px hairline / seam
+        seal: "rgb(var(--c-seal) / <alpha-value>)", // SIGNAL: sealed & reversible
+        vermillion: "rgb(var(--c-vermillion) / <alpha-value>)", // hard-block / tamper stamp
       },
       fontFamily: {
         sans: ["var(--font-geist-sans)", "system-ui", "sans-serif"],
@@ -44,8 +38,8 @@ const config: Config = {
         display: ["30px", { lineHeight: "36px" }],
       },
       boxShadow: {
-        panel: "inset 0 1px 0 rgb(255 255 255 / 0.5)",
-        modal: "0 8px 24px rgb(22 20 15 / 0.18)",
+        panel: "inset 0 1px 0 rgb(var(--c-highlight) / 0.5)",
+        modal: "0 8px 24px rgb(0 0 0 / 0.18)",
       },
       keyframes: {
         unseal: {

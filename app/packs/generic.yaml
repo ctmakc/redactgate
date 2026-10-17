@@ -11,6 +11,7 @@ entity_types:
   - IP_ADDRESS_V6
   - IBAN
   - DATE_OF_BIRTH
+  - INSURANCE_POLICY
 patterns:
   - type: EMAIL
     regex: '\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b'
@@ -42,10 +43,20 @@ patterns:
     regex: '\b[A-Z]{2}\d{2}[ ]?(?:[A-Z0-9]{4}[ ]?){1,7}[A-Z0-9]{1,4}\b'
     description: 'IBAN (International Bank Account Number)'
   - type: DATE_OF_BIRTH
-    # Common date formats likely to carry DOB context: YYYY-MM-DD (ISO 8601),
-    # DD/MM/YYYY and MM/DD/YYYY (ambiguous but equally sensitive), DD.MM.YYYY.
-    # Only flagged when near a DOB keyword ("born", "dob", "birth", "birthdate",
-    # "date of birth", "дата народження", "дата рождения", "ДН") within 40 chars.
-    # Without keyword anchoring the false-positive rate on plain dates is too high.
-    regex: '(?:(?:born|dob|birth(?:date)?|date of birth|дата?\s+(?:народження|рождения)|ДН)\s*[:\-]?\s*)(?:\d{4}[-/]\d{2}[-/]\d{2}|\d{2}[-/.]\d{2}[-/.]\d{4})'
-    description: 'Date of birth (keyword-anchored)'
+    # Date of birth, only when a birth cue precedes it ("born", "DOB", "birth(date|day)",
+    # "date of birth", "date de naissance", "né(e) le", "дата народження/рождения", "ДН").
+    # Without the cue the false-positive rate on ordinary dates (filing dates, tax years) is
+    # too high, which is also why Presidio's DATE_TIME is not mapped (presidio_ner.py).
+    # Formats: YYYY-MM-DD, DD/MM/YYYY or MM/DD/YYYY, DD.MM.YYYY (1-2 digit day/month), and
+    # dates in words in English and French: "March 3, 1980", "Mar. 3 1980", "3 March 1980",
+    # "3rd of March, 1980", "3 mars 1980", "1er août 1979". Case-insensitive; only the date
+    # itself is redacted (named group `value`), so the cue stays readable for the model.
+    # (Codex review on PR #1: word-form dates leaked once Presidio's DATE_TIME was dropped.)
+    regex: '(?:born|dob|birth(?:date|day)?|date of birth|date de naissance|\bn[ée]e?\s+le|дата?\s+(?:народження|рождения)|ДН)(?:\s*(?:on|is|was|the|le|[:\-]))*\s*(?P<value>\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}[-/.]\d{1,2}[-/.]\d{4}|(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?|janv(?:ier)?|f[ée]vr?(?:ier)?|mars|avr(?:il)?|mai|juin|juil(?:let)?|ao[uû]t|sept(?:embre)?|oct(?:obre)?|nov(?:embre)?|d[ée]c(?:embre)?)\b\.?\s+\d{1,2}(?:st|nd|rd|th)?,?\s+\d{4}|\d{1,2}(?:st|nd|rd|th|er|re)?\s+(?:of\s+)?(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?|janv(?:ier)?|f[ée]vr?(?:ier)?|mars|avr(?:il)?|mai|juin|juil(?:let)?|ao[uû]t|sept(?:embre)?|oct(?:obre)?|nov(?:embre)?|d[ée]c(?:embre)?)\b\.?,?\s+\d{4})'
+    flags: IGNORECASE
+    description: 'Date of birth (cue-anchored, numeric or in words)'
+  - type: INSURANCE_POLICY
+    # Insurance / policy / claim reference after an explicit cue. Letters, digits, dashes.
+    regex: '(?:policy|claim)\s*(?:number|no\.?|#)?[\s:#]*(?P<value>(?=[A-Z0-9-]*\d)[A-Z0-9][A-Z0-9-]{4,24}[A-Z0-9])\b'
+    flags: IGNORECASE
+    description: 'Insurance policy or claim number after a policy/claim cue'

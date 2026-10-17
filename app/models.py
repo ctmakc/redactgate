@@ -41,6 +41,8 @@ class Org(Base):
     __tablename__ = "org"
     id: Mapped[uuid.UUID] = _uuid_pk()
     name: Mapped[str] = mapped_column(Text, nullable=False)
+    # Identity-provider organization id (Clerk ``org_...``); NULL for the seeded default.
+    external_id: Mapped[str | None] = mapped_column(Text, unique=True)
     created_at: Mapped[dt.datetime] = mapped_column(TS, server_default=func.now())
 
     teams: Mapped[list[Team]] = relationship(back_populates="org", cascade="all, delete-orphan")
@@ -55,6 +57,9 @@ class Team(Base):
     name: Mapped[str] = mapped_column(Text, nullable=False)
     default_policy_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     created_at: Mapped[dt.datetime] = mapped_column(TS, server_default=func.now())
+    # Admin playground quota (migration 005), reserved atomically in routes/tenants.py.
+    playground_window_start: Mapped[dt.datetime | None] = mapped_column(TS)
+    playground_used: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
 
     org: Mapped[Org] = relationship(back_populates="teams")
 

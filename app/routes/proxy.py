@@ -34,6 +34,7 @@ from app.redaction.pipeline import PipelineContext, build_pipeline
 from app.schemas.openai import (
     HardBlockError,
     error_body,
+    extract_completion_text,
     extract_delta_text,
     set_delta_text,
 )
@@ -182,22 +183,87 @@ async def _handle(
     provider: Provider,
     auth: AuthContext,
 ) -> Any:
-    provider_name = _provider_name(provider)
-
-    # Policy provider allow-list gate (before any upstream work).
-    if not _provider_allowed(decision, provider_name):
-        return JSONResponse(
-            status_code=400,
-            content=error_body(
-                f"provider '{provider_name}' is not permitted by policy",
-                code="provider_not_allowed",
-            ),
-        )
-
+    if not _provider_allowed(decision, _provider_name(provider)):
+        return _provider_not_allowed(_provider_name(provider))
     try:
         payload = await _read_payload(request)
     except ProviderError as exc:
         return JSONResponse(status_code=exc.status_code, content=error_body(str(exc)))
+    return await process_payload(
+        payload,
+        route,
+        store=store,
+        audit_sink=audit_sink,
+        decision=decision,
+        provider=provider,
+        auth=auth,
+    )
+
+
+def _provider_not_allowed(provider_name: str) -> JSONResponse:
+    return JSONResponse(
+        status_code=400,
+        content=error_body(
+            f"provider '{provider_name}' is not permitted by policy",
+            code="provider_not_allowed",
+        ),
+    )
+
+
+def fallback_chain(primary: Provider, decision: PolicyDecision) -> list[Provider]:
+    """Primary provider, then each configured fallback that the policy also permits.
+
+    SECURITY: a fallback never widens the policy — a provider missing from the policy's
+    allow-list is skipped, so an outage cannot reroute data somewhere the policy forbids.
+    """
+    import app.gateway  # noqa: F401  (self-registers adapters)
+    from app.gateway.base import get_provider
+
+    chain = [primary]
+    seen = {_provider_name(primary)}
+    for name in [n.strip() for n in settings.ai_fallback_providers.split(",") if n.strip()]:
+        if name in seen or not _provider_allowed(decision, name):
+            continue
+        try:
+            chain.append(get_provider(name, settings))
+        except ProviderError:
+            continue
+        seen.add(name)
+    return chain
+
+
+def for_fallback(payload: dict[str, Any], candidate: Provider) -> dict[str, Any]:
+    """The payload as a fallback provider should receive it: with that provider's own model.
+
+    The caller's model name belongs to the primary (``gpt-4o-mini``, ``claude-opus-5-5``);
+    a fallback such as Ollama would take it literally and fail with model-not-found.
+    """
+    return {**payload, "model": candidate.default_model() or "default"}
+
+
+async def process_payload(
+    payload: dict[str, Any],
+    route: str,
+    *,
+    store: TokenStore,
+    audit_sink: DBAuditSink,
+    decision: PolicyDecision,
+    provider: Provider,
+    auth: AuthContext,
+    explain: bool = False,
+) -> Any:
+    """Run one request through the firewall.
+
+    ``explain=True`` (admin playground only, non-streaming) adds a ``redactgate`` block to
+    the response: the exact messages that left the perimeter, the model's raw answer
+    (placeholders intact), entity type counts and span offsets into the caller's own text.
+    It reveals nothing beyond what the caller sent; nothing extra is persisted.
+    """
+    provider_name = _provider_name(provider)
+
+    # Policy provider allow-list gate (before any upstream work).
+    if not _provider_allowed(decision, provider_name):
+        return _provider_not_allowed(provider_name)
 
     vault = build_vault(store, cfg=settings)
     detector = get_detector(settings)
@@ -234,7 +300,7 @@ async def _handle(
             ),
         )
 
-    stream_requested = bool(payload.get("stream"))
+    stream_requested = bool(payload.get("stream")) and not explain
 
     if stream_requested:
         # Pre-resolve the session token map NOW, while the request DB session is alive —
@@ -254,10 +320,22 @@ async def _handle(
             media_type="text/event-stream",
         )
 
-    # ── Non-streaming ──
-    try:
-        completion = await provider.complete(sanitized)
-    except ProviderError as exc:
+    # ── Non-streaming (with policy-safe provider fallback) ──
+    completion: dict[str, Any] | None = None
+    failures: list[dict[str, Any]] = []
+    for i, candidate in enumerate(fallback_chain(provider, decision)):
+        try:
+            completion = await candidate.complete(
+                sanitized if i == 0 else for_fallback(sanitized, candidate)
+            )
+            provider_name = _provider_name(candidate)
+            break
+        except ProviderError as exc:
+            failures.append(
+                {"provider": _provider_name(candidate), "status": exc.status_code, "error": str(exc)}
+            )
+            last_exc = exc
+    if completion is None:
         await _safe_audit(
             audit_sink,
             auth=auth,
@@ -269,10 +347,11 @@ async def _handle(
             latency_ms=int((time.perf_counter() - started) * 1000),
         )
         return JSONResponse(
-            status_code=exc.status_code,
-            content=error_body(str(exc), code="provider_error"),
+            status_code=last_exc.status_code,
+            content=error_body(str(last_exc), code="provider_error"),
         )
 
+    upstream_text = extract_completion_text(completion) if explain else None
     reinflated = await pipeline.reinflate(completion, ctx)
     prompt_tokens, completion_tokens = _usage(reinflated)
     await _safe_audit(
@@ -287,6 +366,28 @@ async def _handle(
         completion_tokens=completion_tokens,
         latency_ms=int((time.perf_counter() - started) * 1000),
     )
+    if explain:
+        reinflated["redactgate"] = {
+            "session_id": ctx.session_id,
+            "provider": provider_name,
+            "model": reinflated.get("model"),
+            "fallback_from": failures,
+            "entity_counts": ctx.entity_counts,
+            "inputs": [
+                {
+                    "text": text,
+                    "spans": [
+                        {"start": sp.start, "end": sp.end, "type": sp.entity_type,
+                         "source": sp.source, "score": round(float(sp.score), 3)}
+                        for sp in spans
+                    ],
+                }
+                for text, spans in ctx.per_text
+            ],
+            "upstream_messages": sanitized.get("messages"),
+            "upstream_answer": upstream_text,
+            "latency_ms": int((time.perf_counter() - started) * 1000),
+        }
     return JSONResponse(status_code=200, content=reinflated)
 
 
@@ -306,8 +407,12 @@ async def _stream_response(
     ``detok`` is a PRE-RESOLVED ``StreamDetokenizer`` (built in the handler while the DB
     session was alive) so this generator needs no store access after the request closes.
     """
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
     try:
         async for chunk in provider.stream(sanitized):
+            if isinstance(chunk.get("usage"), dict):  # final chunk carries token usage
+                prompt_tokens, completion_tokens = _usage(chunk)
             delta = extract_delta_text(chunk)
             if delta:
                 out = await detok.push(delta)
@@ -337,6 +442,8 @@ async def _stream_response(
         provider=provider_name,
         entity_counts=ctx.entity_counts,
         blocked=False,
+        prompt_tokens=prompt_tokens,
+        completion_tokens=completion_tokens,
         latency_ms=int((time.perf_counter() - started) * 1000),
     )
 
