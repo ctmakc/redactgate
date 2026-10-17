@@ -35,3 +35,8 @@ pgdata/
 # internal workflow/orchestration scripts
 .build/
 .wrangler/
+
+# generated outputs and local freezes
+requirements*.frozen-*.txt
+docs/hack-apertus/video/out/
+track_2b/out/
