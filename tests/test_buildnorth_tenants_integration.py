@@ -101,3 +101,61 @@ def test_playground_runs_pipeline_and_caps(client, monkeypatch):
     s = client.get(f"/admin/teams/{t['team_id']}/stats").json()
     assert s["requests"] == 2 and s["entities_by_type"].get("SIN") == 2
     assert client.get(f"/admin/teams/{t['team_id']}/audit/verify").json()["ok"] is True
+
+
+@integration_only()
+def test_playground_cap_holds_under_concurrent_requests(client, monkeypatch):
+    """Parallel runs near the cap must not all pass the check (Codex review, PR #1)."""
+    import asyncio
+    from concurrent.futures import ThreadPoolExecutor
+
+    from app import deps
+    from tests.test_proxy_e2e import FakeProvider
+
+    class SlowFake(FakeProvider):
+        async def complete(self, payload):
+            await asyncio.sleep(0.4)  # every request is in flight before any audit row commits
+            return await super().complete(payload)
+
+    fake = SlowFake(settings)
+    monkeypatch.setattr(deps, "get_active_provider", lambda: fake)
+    monkeypatch.setattr(settings, "playground_daily_limit", 3)
+    t = _resolve(client, f"org_it_{uuid.uuid4().hex[:10]}")
+    body = {"team_id": t["team_id"], "prompt": "What is the RRSP deadline?"}
+    with ThreadPoolExecutor(max_workers=10) as pool:
+        codes = sorted(pool.map(lambda _: client.post("/admin/playground", json=body).status_code, range(10)))
+    assert codes.count(200) == 3 and codes.count(429) == 7, codes
+    assert len(fake.received_payloads) == 3
+    assert client.get(f"/admin/teams/{t['team_id']}/stats").json()["requests"] == 3
+
+
+@integration_only()
+def test_playground_window_resets_after_24h(client, monkeypatch):
+    import asyncio
+
+    from sqlalchemy import text
+
+    from app import deps
+    from tests.test_proxy_e2e import FakeProvider
+
+    monkeypatch.setattr(deps, "get_active_provider", lambda: FakeProvider(settings))
+    monkeypatch.setattr(settings, "playground_daily_limit", 1)
+    t = _resolve(client, f"org_it_{uuid.uuid4().hex[:10]}")
+    body = {"team_id": t["team_id"], "prompt": "hello"}
+    assert client.post("/admin/playground", json=body).status_code == 200
+    assert client.post("/admin/playground", json=body).status_code == 429
+
+    async def age_window():
+        from sqlalchemy.ext.asyncio import create_async_engine
+
+        eng = create_async_engine(settings.database_url)
+        async with eng.begin() as conn:
+            await conn.execute(
+                text("UPDATE team SET playground_window_start = now() - interval '25 hours' WHERE id = :id"),
+                {"id": uuid.UUID(t["team_id"])},
+            )
+        await eng.dispose()
+
+    asyncio.run(age_window())
+    r = client.post("/admin/playground", json=body)
+    assert r.status_code == 200 and r.headers["X-Playground-Remaining"] == "0"

@@ -18,7 +18,7 @@ import uuid
 from typing import TYPE_CHECKING, Any
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 
 from app.config import settings
 from app.db import get_session
@@ -267,6 +267,44 @@ async def verify_team_chain(
     return {"ok": bool(ok), "events": int(count), "checked_at": dt.datetime.now(dt.UTC).isoformat()}
 
 
+# One statement reserves a run: Postgres row-locks the team row and re-checks the WHERE
+# clause on the latest row version, so concurrent callers cannot both take the last slot.
+_RESERVE_PLAYGROUND_RUN = text(
+    """
+    UPDATE team SET
+        playground_used = CASE
+            WHEN playground_window_start IS NULL
+                 OR playground_window_start <= now() - interval '24 hours' THEN 1
+            ELSE playground_used + 1 END,
+        playground_window_start = CASE
+            WHEN playground_window_start IS NULL
+                 OR playground_window_start <= now() - interval '24 hours' THEN now()
+            ELSE playground_window_start END
+    WHERE id = :team_id
+      AND (playground_window_start IS NULL
+           OR playground_window_start <= now() - interval '24 hours'
+           OR playground_used < :limit)
+    RETURNING playground_used
+    """
+)
+
+
+async def reserve_playground_run(session: AsyncSession, team_id: uuid.UUID, limit: int) -> int | None:
+    """Atomically take one playground run for ``team_id``; ``None`` when the cap is reached.
+
+    Returns the number of runs used in the current 24 h window, this one included. The
+    reservation is committed at once so parallel requests see it before any provider call.
+    A run counts even if the provider then fails: the cap protects the provider budget.
+    """
+    if limit <= 0:
+        return None
+    used = (
+        await session.execute(_RESERVE_PLAYGROUND_RUN, {"team_id": team_id, "limit": limit})
+    ).scalar_one_or_none()
+    await session.commit()
+    return None if used is None else int(used)
+
+
 @router.post("/playground")
 async def playground(
     _: None = _AdminDep,
@@ -295,19 +333,8 @@ async def playground(
     if len(prompt) > MAX_PROMPT_CHARS:
         raise HTTPException(status_code=413, detail=f"prompt longer than {MAX_PROMPT_CHARS} chars")
 
-    since = dt.datetime.now(dt.UTC) - dt.timedelta(hours=24)
-    used = (
-        await session.execute(
-            select(func.count())
-            .select_from(AuditEvent)
-            .where(
-                AuditEvent.team_id == team.id,
-                AuditEvent.route == PLAYGROUND_ROUTE,
-                AuditEvent.created_at >= since,
-            )
-        )
-    ).scalar_one()
-    if used >= settings.playground_daily_limit:
+    used = await reserve_playground_run(session, team.id, settings.playground_daily_limit)
+    if used is None:
         return JSONResponse(
             status_code=429,
             content=error_body(
@@ -340,6 +367,6 @@ async def playground(
     await session.commit()
     if hasattr(response, "headers"):
         response.headers["X-Playground-Remaining"] = str(
-            max(0, settings.playground_daily_limit - int(used) - 1)
+            max(0, settings.playground_daily_limit - used)
         )
     return response
