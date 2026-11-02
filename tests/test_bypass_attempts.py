@@ -162,3 +162,56 @@ async def test_ipv6_is_redacted_in_full(pipe, ip):
 @pytest.mark.parametrize("code", ["std::vector<int>", "Foo::Bar::baz()", "C::Foo", "10:30:15"])
 async def test_ipv6_does_not_fire_on_code_or_times(pipe, code):
     assert await _sent(pipe, f"see {code} here") == f"see {code} here"
+
+
+# ── Format variants the default packs must cover ─────────────────────────────────
+
+FORMAT_CASES = [
+    ("intl phone uk", "+44 20 7946 0958", "PHONE"),
+    ("intl phone ua", "+380 44 123 4567", "PHONE"),
+    ("intl phone de", "+49 30 12345678", "PHONE"),
+    ("intl phone fr", "+33 1 23 45 67 89", "PHONE"),
+    ("intl phone trunk", "+44 (0)20 7946 0958", "PHONE"),
+    ("intl phone compact", "+380441234567", "PHONE"),
+    ("ssn spaces", "123 45 6789", "SSN"),
+    ("sin dots", "193.456.787", "SIN"),
+    ("card dots", "4111.1111.1111.1111", "CREDIT_CARD"),
+    ("iban lower", "gb82 west 1234 5698 7654 32", "IBAN"),
+    ("iban mixed", "De89 3704 0044 0532 0130 00", "IBAN"),
+    ("email homoglyph", "jоhn@exаmple.com", "EMAIL"),
+    ("email idn", "user@пример.рф", "EMAIL"),
+]
+
+
+@pytest.mark.parametrize(("name", "value", "etype"), FORMAT_CASES, ids=[c[0] for c in FORMAT_CASES])
+async def test_format_variants_are_redacted(pipe, name, value, etype):
+    sent = await _sent(pipe, f"Details: {value} (end)")
+    assert value not in sent
+    assert sent == f"Details: [[{etype}_" + sent.split(f"[[{etype}_", 1)[1]
+    assert sent.endswith("]] (end)"), f"{name}: partial redaction -> {sent!r}"
+
+
+@pytest.mark.parametrize(
+    "benign",
+    ["+100% growth", "score +12 34", "1+2=3", "+5 points", "call me @ noon", "foo@bar"],
+)
+async def test_format_rules_do_not_fire_on_benign_text(pipe, benign):
+    assert await _sent(pipe, benign) == benign
+
+
+def test_e164_check_bounds():
+    from app.redaction.validators import e164_check, get_validator
+
+    assert get_validator("e164_check") is e164_check
+    assert e164_check("+44 20 7946 0958")
+    assert e164_check("+1 234 567 8")  # 8 digits
+    assert not e164_check("+1 234 567")  # 7 digits
+    assert not e164_check("+1234567890123456")  # 16 digits
+
+
+def test_validators_accept_dot_separators():
+    from app.redaction.validators import iban_mod97, luhn, sin_check
+
+    assert luhn("4111.1111.1111.1111")
+    assert sin_check("193.456.787")
+    assert iban_mod97("GB82.WEST.1234.5698.7654.32")
