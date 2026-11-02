@@ -113,10 +113,28 @@ def create_app() -> FastAPI:
         except Exception as exc:  # noqa: BLE001
             log.warning("router %s not wired: %s", module_path, exc)
 
+    from app.gateway.base import ProviderError
+
+    @app.exception_handler(ProviderError)
+    async def _provider_error(_request, exc: ProviderError):
+        # Raised from dependencies too (e.g. ``get_auth`` -> 401). Without this handler it
+        # fell through to the catch-all below and every bad API key became an HTTP 500.
+        headers = {"WWW-Authenticate": "Bearer"} if exc.status_code == 401 else None
+        code = "invalid_api_key" if exc.status_code == 401 else None
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=error_body(str(exc), code=code),
+            headers=headers,
+        )
+
     @app.exception_handler(Exception)
     async def _unhandled(_request, exc: Exception):  # pragma: no cover
         log.exception("unhandled error")
-        return JSONResponse(status_code=500, content=error_body(str(exc)))
+        # Never echo internal exception text (DB/driver errors can carry DSNs, SQL or
+        # bound parameters) to the client.
+        return JSONResponse(
+            status_code=500, content=error_body("internal server error", code="internal_error")
+        )
 
     @app.get("/")
     async def root():
