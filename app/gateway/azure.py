@@ -14,6 +14,7 @@ actually invoked.
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import AsyncIterator
 from typing import Any
 
@@ -22,6 +23,10 @@ import httpx
 from app.config import Settings
 from app.gateway.base import Provider, ProviderError, register_provider
 from app.gateway.openai import is_generic_model, iter_sse_data
+
+# Azure deployment names: letters, digits, '-', '_', '.'. Anything else (``/``, ``?``,
+# ``#``, ``%``, ``..``) would let a caller rewrite the upstream path / query string.
+_DEPLOYMENT_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 
 
 class AzureOpenAIProvider(Provider):
@@ -43,9 +48,17 @@ class AzureOpenAIProvider(Provider):
 
     def _deployment_for(self, payload: dict[str, Any]) -> str:
         model = payload.get("model")
-        if not is_generic_model(model):
-            return str(model)
-        return self._deployment
+        if is_generic_model(model):
+            return self._deployment
+        resolved = str(model)
+        # SECURITY: interpolated into the URL path — reject path/query injection.
+        if not _DEPLOYMENT_RE.match(resolved) or ".." in resolved:
+            raise ProviderError(
+                f"invalid model/deployment name '{resolved[:64]}'",
+                status_code=400,
+                provider=self.name,
+            )
+        return resolved
 
     def _url(self, deployment: str) -> str:
         return (
