@@ -132,3 +132,33 @@ def test_normalize_is_idempotent_on_adversarial_mix():
 def test_normalize_keeps_ordinary_multilingual_text():
     for s in ("Привіт, світ", "Bonjour à tous", "日本語のテキスト", "مرحبا بالعالم"):
         assert normalize_text(s) == s
+
+
+# ── IPv6: compressed forms must be redacted in full (no trailing-group leak) ─────
+
+
+@pytest.mark.parametrize(
+    "ip",
+    [
+        "2001:db8::1",
+        "fe80::1:2",
+        "2001:db8::8a2e:370:7334",
+        "2001:db8:0:0:1::1",
+        "::1",
+        "fe80::",
+        "1:2:3:4:5:6:7::",
+        "::2:3:4:5:6:7:8",
+        "FE80::ABCD",
+        "::ffff:192.0.2.1",
+        "64:ff9b::192.0.2.33",
+    ],
+)
+async def test_ipv6_is_redacted_in_full(pipe, ip):
+    sent = await _sent(pipe, f"Login from {ip}, then logout.")
+    assert sent.startswith("Login from [[IP_ADDRESS_V6_")
+    assert sent.endswith("]], then logout."), f"partial IPv6 redaction leaked: {sent!r}"
+
+
+@pytest.mark.parametrize("code", ["std::vector<int>", "Foo::Bar::baz()", "C::Foo", "10:30:15"])
+async def test_ipv6_does_not_fire_on_code_or_times(pipe, code):
+    assert await _sent(pipe, f"see {code} here") == f"see {code} here"
