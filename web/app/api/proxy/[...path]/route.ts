@@ -12,8 +12,19 @@ export const dynamic = "force-dynamic";
 
 const ALLOWED_PREFIX = "admin/";
 
+// Next.js hands us *decoded* segments, so "admin/..%2Fhealthz" arrives as
+// ["admin", "../healthz"]; joined naively, fetch() then normalises it to /healthz and
+// the /admin/ allow-list is bypassed (with the admin token attached). Reject dot
+// segments and embedded separators, and re-encode each segment before joining.
+function isSafeSegment(s: string): boolean {
+  return s !== "" && s !== "." && s !== ".." && !/[/\\]/.test(s);
+}
+
 async function forward(req: NextRequest, segments: string[]): Promise<NextResponse> {
-  const path = segments.join("/");
+  if (!segments.every(isSafeSegment)) {
+    return NextResponse.json({ error: "forbidden path" }, { status: 403 });
+  }
+  const path = segments.map(encodeURIComponent).join("/");
   if (!path.startsWith(ALLOWED_PREFIX)) {
     return NextResponse.json({ error: "forbidden path" }, { status: 403 });
   }

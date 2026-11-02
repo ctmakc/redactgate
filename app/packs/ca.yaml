@@ -10,7 +10,7 @@ patterns:
     # Social Insurance Number — 9 digits, optionally grouped 3-3-3 with spaces or hyphens.
     # Luhn-validated (sin_check) to suppress false positives. Cues: "SIN", "NAS",
     # "numero d'assurance sociale", "соцстрахування".
-    regex: '\b\d{3}[ -]?\d{3}[ -]?\d{3}\b'
+    regex: '\b\d{3}[ .\-]?\d{3}[ .\-]?\d{3}\b'
     validator: sin_check
     description: "Canadian SIN / NAS (numero d'assurance sociale)"
   - type: BUSINESS_NUMBER

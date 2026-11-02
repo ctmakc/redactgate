@@ -62,7 +62,12 @@ class ResponsesRequest(BaseModel):
 # the upstream LLM un-redacted. We cover: message `content` (str or text/​input/​output
 # parts), assistant `tool_calls[].function.arguments` and legacy `function_call.arguments`
 # (JSON strings that routinely embed PII), and the /v1/responses `input` (a string, a flat
-# list of text parts, OR a list of message objects with nested `content`).
+# list of text parts, OR a list of message objects with nested `content`), Responses
+# `function_call_output.output` / `function_call.arguments` items, the top-level
+# `instructions` (Responses system prompt), `user` (end-user id — often an email) and
+# `prediction.content` (predicted-output text), plus assistant `refusal` parts. The
+# OpenAI-compatible adapters forward the payload dict verbatim, so an unwalked field is
+# an unredacted field.
 #
 # ``extract_texts`` and ``inject_texts`` are BOTH built on the single ``_map_texts`` walker
 # so they can never drift out of alignment (a drift = either a leak or a corrupted payload).
@@ -79,12 +84,12 @@ def _walk_content(content: Any, fn: Callable[[str], str]) -> Any:
         return fn(content)
     if isinstance(content, list):
         for part in content:
-            if (
-                isinstance(part, dict)
-                and part.get("type") in _TEXT_PART_TYPES
-                and isinstance(part.get("text"), str)
-            ):
+            if not isinstance(part, dict):
+                continue
+            if part.get("type") in _TEXT_PART_TYPES and isinstance(part.get("text"), str):
                 part["text"] = fn(part["text"])
+            elif part.get("type") == "refusal" and isinstance(part.get("refusal"), str):
+                part["refusal"] = fn(part["refusal"])
     return content
 
 
@@ -119,13 +124,27 @@ def _map_texts(payload: dict[str, Any], fn: Callable[[str], str]) -> dict[str, A
         for item in inp:
             if not isinstance(item, dict):
                 continue
-            if "content" in item or "tool_calls" in item:
+            if item.get("type") in ("function_call_output", "function_call"):
+                # Responses tool round-trip items: tool results routinely carry the very
+                # records (customer rows, account data) the firewall exists to redact.
+                if "output" in item:
+                    item["output"] = _walk_content(item.get("output"), fn)
+                if isinstance(item.get("arguments"), str):
+                    item["arguments"] = fn(item["arguments"])
+            elif "content" in item or "tool_calls" in item:
                 # a Responses-API message object: {role, content: str|parts, tool_calls?}
                 _walk_message(item, fn)
             elif item.get("type") in _TEXT_PART_TYPES and isinstance(item.get("text"), str):
                 item["text"] = fn(item["text"])  # flat input_text part
             elif isinstance(item.get("text"), str):
                 item["text"] = fn(item["text"])  # bare {text: ...}
+    # Top-level free-text fields (appended last so earlier walk order is unchanged).
+    for key in ("instructions", "user"):
+        if isinstance(out.get(key), str):
+            out[key] = fn(out[key])
+    pred = out.get("prediction")
+    if isinstance(pred, dict) and "content" in pred:
+        pred["content"] = _walk_content(pred.get("content"), fn)
     return out
 
 

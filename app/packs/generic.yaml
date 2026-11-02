@@ -13,12 +13,15 @@ entity_types:
   - DATE_OF_BIRTH
 patterns:
   - type: EMAIL
-    regex: '\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b'
+    # Unicode-aware (\w): an ASCII-only class let homoglyph addresses ("jоhn@exаmple.com"
+    # with Cyrillic о/а) and IDN mailboxes ("user@пример.рф") through unredacted.
+    regex: '\b[\w.%+\-]+@[\w\-]+(?:\.[\w\-]+)*\.[^\W\d_]{2,}\b'
     description: 'Email address'
   - type: CREDIT_CARD
     # 13–19 digits with optional single space/hyphen separators, Luhn-validated so random
     # long digit runs are not flagged. Catches Visa/MC/Amex/Discover formats.
-    regex: '\b\d(?:[ \-]?\d){12,18}\b'
+    # Dot-separated groups ("4111.1111.1111.1111") are accepted too.
+    regex: '\b\d(?:[ .\-]?\d){12,18}\b'
     validator: luhn
     description: 'Payment card number (Luhn-validated)'
   - type: PHONE
@@ -26,13 +29,23 @@ patterns:
     # swept up. Covers NA "(613) 555-0142", "+1 613-555-0142", "613.555.0142".
     regex: '(?:\+?\d{1,3}[ .\-]?)?(?:\(\d{3}\)|\d{3})[ .\-]\d{3}[ .\-]\d{4}\b'
     description: 'Phone number (NA / international with separators)'
+  - type: PHONE
+    # International E.164-style numbers with a leading "+" and arbitrary grouping
+    # ("+44 20 7946 0958", "+380 44 123 4567", "+49 30 12345678", "+44 (0)20 ...").
+    # The NA-shaped rule above missed every non-3-3-4 layout. e164_check requires
+    # 8..15 digits so "+100%" / "+12 34" are not flagged.
+    regex: '(?<![\w+])\+\d{1,3}(?:[ .\-]?(?:\(\d{1,4}\)|\d{1,4})){2,6}(?!\d)'
+    validator: e164_check
+    description: 'Phone number (international, leading +)'
   - type: IP_ADDRESS
     regex: '\b(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)\b'
     description: 'IPv4 address'
   - type: IP_ADDRESS_V6
-    # Full and compressed IPv6 (RFC 5952). Catches 8-group full form and :: compressed.
-    # Double-colon forms: ::1, fe80::1, 2001:db8::1, etc.
-    regex: '(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|(?:[0-9a-fA-F]{1,4}:){1,7}:|(?:[0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|::(?:[0-9a-fA-F]{1,4}:){0,5}[0-9a-fA-F]{1,4}|::1'
+    # Full, compressed (RFC 5952) and IPv4-embedded IPv6. Alternatives are ordered so the
+    # forms with groups AFTER the "::" are tried before the bare trailing-"::" form — the
+    # previous ordering matched "2001:db8::1" as "2001:db8::" and leaked the last group.
+    # Word-boundary lookarounds keep C++/Rust paths ("std::vector") from matching.
+    regex: '(?<![\w:])(?:(?:[0-9a-fA-F]{1,4}:){6}(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)|(?:[0-9a-fA-F]{1,4}:){1,5}:(?:[0-9a-fA-F]{1,4}:){0,4}(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)|::(?:[0-9a-fA-F]{1,4}:){0,5}(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)|(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|(?:[0-9a-fA-F]{1,4}:){1}(?::[0-9a-fA-F]{1,4}){1,6}|(?:[0-9a-fA-F]{1,4}:){2}(?::[0-9a-fA-F]{1,4}){1,5}|(?:[0-9a-fA-F]{1,4}:){3}(?::[0-9a-fA-F]{1,4}){1,4}|(?:[0-9a-fA-F]{1,4}:){4}(?::[0-9a-fA-F]{1,4}){1,3}|(?:[0-9a-fA-F]{1,4}:){5}(?::[0-9a-fA-F]{1,4}){1,2}|(?:[0-9a-fA-F]{1,4}:){6}(?::[0-9a-fA-F]{1,4}){1,1}|(?:[0-9a-fA-F]{1,4}:){1,7}:|::(?:[0-9a-fA-F]{1,4}:){0,6}[0-9a-fA-F]{1,4})(?!\w)'
     description: 'IPv6 address'
   - type: IBAN
     # International Bank Account Number: 2-letter country + 2 check digits + up to 30
@@ -41,6 +54,14 @@ patterns:
     # risk because the 2-letter ISO prefix anchors the pattern).
     regex: '\b[A-Z]{2}\d{2}[ ]?(?:[A-Z0-9]{4}[ ]?){1,7}[A-Z0-9]{1,4}\b'
     description: 'IBAN (International Bank Account Number)'
+  - type: IBAN
+    # Same shape typed in lower/mixed case ("gb82 west 1234 ..."): the rule above is
+    # upper-case only. Case-insensitive matching is noisier, so this variant is
+    # mod-97 validated.
+    regex: '\b[A-Z]{2}\d{2}[ ]?(?:[A-Z0-9]{4}[ ]?){1,7}[A-Z0-9]{1,4}\b'
+    flags: IGNORECASE
+    validator: iban_mod97
+    description: 'IBAN, any letter case (mod-97 validated)'
   - type: DATE_OF_BIRTH
     # Common date formats likely to carry DOB context: YYYY-MM-DD (ISO 8601),
     # DD/MM/YYYY and MM/DD/YYYY (ambiguous but equally sensitive), DD.MM.YYYY.

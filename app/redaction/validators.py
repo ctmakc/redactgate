@@ -3,7 +3,7 @@
 Every validator is a pure function ``(str) -> bool``. They are referenced *by name*
 from the YAML jurisdiction packs (the ``validator`` key on a pattern) and resolved at
 load time by ``regex_packs.py``. A validator receives the raw regex match text; it MUST
-strip its own separators (spaces / hyphens) before checking.
+strip its own separators (spaces / dots / hyphens) before checking.
 
 SECURITY: validators never log, print, or persist their input.
 """
@@ -15,11 +15,11 @@ from collections.abc import Callable
 
 Validator = Callable[[str], bool]
 
-_NON_DIGIT_RE = re.compile(r"[\s-]")
+_NON_DIGIT_RE = re.compile(r"[\s.\-]")
 
 
 def _digits(s: str) -> str:
-    """Strip spaces and hyphens, returning only what remains (kept as-is otherwise)."""
+    """Strip spaces, dots and hyphens, returning only what remains (kept as-is otherwise)."""
     return _NON_DIGIT_RE.sub("", s)
 
 
@@ -129,6 +129,12 @@ def uci_check(s: str) -> bool:
     return 8 <= len(cleaned) <= 10 and cleaned.isdigit()
 
 
+def e164_check(s: str) -> bool:
+    """International phone number sanity: 8 to 15 digits in total (ITU-T E.164 max is 15)."""
+    digits = re.sub(r"\D", "", s)
+    return 8 <= len(digits) <= 15
+
+
 # Registry consumed by regex_packs.py to resolve a pattern's ``validator`` name.
 VALIDATORS: dict[str, Validator] = {
     "luhn": luhn,
@@ -140,6 +146,7 @@ VALIDATORS: dict[str, Validator] = {
     "edrpou_check": edrpou_check,
     "ipn_check": ipn_check,
     "uci_check": uci_check,
+    "e164_check": e164_check,
 }
 
 
