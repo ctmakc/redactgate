@@ -169,3 +169,39 @@ def test_both_proxy_routes_require_auth(auth_client, path):
     resp = client.post(path, json={"model": "m", "input": "hi"})
     assert resp.status_code != 200
     assert provider.calls == []
+
+
+# ── Status codes / envelopes ─────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    "headers",
+    [{}, {"Authorization": "Bearer rg-not-a-real-key"}, {"Authorization": f"Bearer {REVOKED}"}],
+    ids=["missing", "unknown", "revoked"],
+)
+def test_bad_credentials_return_401_openai_envelope(auth_client, headers):
+    client, _, _ = auth_client
+    resp = client.post("/v1/chat/completions", json=BODY, headers=headers)
+    assert resp.status_code == 401
+    assert resp.headers.get("www-authenticate") == "Bearer"
+    err = resp.json()["error"]
+    assert err["code"] == "invalid_api_key"
+    assert err["message"] == "invalid api key"
+
+
+def test_unhandled_errors_do_not_echo_internal_details(auth_client):
+    client, provider, _ = auth_client
+    app = client.app
+
+    def _boom():
+        raise RuntimeError("postgresql://redactgate:hunter2@db:5432/x SELECT ... 193 456 787")
+
+    app.dependency_overrides[deps.get_policy_decision] = _boom
+    resp = client.post(
+        "/v1/chat/completions", json=BODY, headers={"Authorization": f"Bearer {GOOD}"}
+    )
+    assert resp.status_code == 500
+    assert "hunter2" not in resp.text
+    assert "193 456 787" not in resp.text
+    assert resp.json()["error"]["code"] == "internal_error"
+    assert provider.calls == []
