@@ -215,3 +215,65 @@ def test_validators_accept_dot_separators():
     assert luhn("4111.1111.1111.1111")
     assert sin_check("193.456.787")
     assert iban_mod97("GB82.WEST.1234.5698.7654.32")
+
+
+# ── Encoded payloads ─────────────────────────────────────────────────────────────
+
+import base64  # noqa: E402
+
+
+def _b64(s: str) -> str:
+    return base64.b64encode(s.encode()).decode()
+
+
+def _b64url(s: str) -> str:
+    return base64.urlsafe_b64encode(s.encode()).decode().rstrip("=")
+
+
+B64_SECRETS = [
+    ("sin", "SIN 193 456 787", "SIN"),
+    ("email", "jane.doe@example.org", "EMAIL"),
+    ("card", "4111111111111111", "CREDIT_CARD"),
+    ("iban", "GB82 WEST 1234 5698 7654 32", "IBAN"),
+    ("ssn json", '{"ssn": "123-45-6789"}', "SSN"),
+]
+
+
+@pytest.mark.parametrize(("name", "secret", "etype"), B64_SECRETS, ids=[c[0] for c in B64_SECRETS])
+@pytest.mark.parametrize("enc", [_b64, _b64url, lambda s: _b64(_b64(s))], ids=["b64", "b64url", "double"])
+async def test_base64_wrapped_pii_is_redacted(pipe, name, secret, etype, enc):
+    token = enc(secret)
+    sent = await _sent(pipe, f"Decode this: {token} and summarise.")
+    assert token not in sent, f"{name}: encoded PII leaked -> {sent!r}"
+    assert f"[[{etype}_" in sent
+
+
+async def test_base64_roundtrips_to_the_original_token(pipe):
+    token = _b64("SIN 193 456 787")
+    payload = {"model": "m", "messages": [{"role": "user", "content": f"x {token} y"}]}
+    sanitized, ctx = await pipe.sanitize_request(payload, route="t")
+    echoed = sanitized["messages"][0]["content"]
+    done = await pipe.reinflate(
+        {"choices": [{"message": {"role": "assistant", "content": echoed}}]}, ctx
+    )
+    assert done["choices"][0]["message"]["content"] == f"x {token} y"
+
+
+@pytest.mark.parametrize(
+    "benign",
+    [
+        _b64("Hello, this is a perfectly ordinary sentence."),
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",  # sha256
+        "550e8400-e29b-41d4-a716-446655440000",  # uuid
+        "internationalization",
+        "/usr/local/lib/python3.12/site-packages",
+        "dGVzdA",  # too short to consider
+    ],
+)
+async def test_base64_pass_ignores_tokens_without_pii(pipe, benign):
+    assert await _sent(pipe, f"value {benign} end") == f"value {benign} end"
+
+
+async def test_base64_pass_tolerates_garbage_and_huge_tokens(pipe):
+    junk = "A" * 70_000 + " " + "!!notbase64!!" * 3 + " " + "QUJD" * 5 + "="
+    assert await _sent(pipe, junk) == junk
