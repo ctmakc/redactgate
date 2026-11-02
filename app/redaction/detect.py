@@ -16,12 +16,16 @@ the regex pass alone is always sufficient. No raw entity value is ever logged.
 from __future__ import annotations
 
 import asyncio
+import base64
+import binascii
 import logging
+import re
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any
 
 from app.config import settings
 from app.redaction.merge import merge_spans
+from app.redaction.normalize import normalize_text
 from app.redaction.presidio_ner import PresidioDetector
 from app.schemas.entities import DetectionResult, EntitySpan
 
@@ -45,6 +49,68 @@ try:
 except Exception as exc:  # noqa: BLE001 - llm_ner unavailable -> LLM pass disabled
     logger.info("llm_ner unavailable: %s", exc)
     _llm_ner = None
+
+
+# ── Encoded-payload pass ─────────────────────────────────────────────────────────
+#
+# SECURITY: a caller (or an injected document) can wrap PII in base64 so the regex packs
+# never see it — ``U0lOIDE5MyA0NTYgNzg3`` is "SIN 193 456 787" — and every upstream LLM
+# decodes base64 effortlessly. Each base64-looking token is decoded (standard and URL-safe
+# alphabets, nested up to ``_B64_MAX_DEPTH``) and, if the decoded text contains a
+# regex-detectable entity, the WHOLE token is emitted as a span of that entity type.
+
+_B64_TOKEN_RE = re.compile(r"(?<![A-Za-z0-9+/_=-])[A-Za-z0-9+/_-]{16,}={0,2}(?![A-Za-z0-9+/_=-])")
+_B64_MAX_TOKEN = 64_000  # bound per-token decode work
+_B64_MAX_DEPTH = 2
+_B64_SCORE = 0.96  # above plain regex (0.95): the token-level span must win any overlap
+
+
+def _b64_decode_text(token: str) -> str | None:
+    """Decode a base64/base64url token to printable text, or None if it isn't one."""
+    if len(token) > _B64_MAX_TOKEN:
+        return None
+    body = token.rstrip("=").replace("-", "+").replace("_", "/")
+    if len(body) % 4 == 1:
+        return None
+    try:
+        raw = base64.b64decode(body + "=" * (-len(body) % 4), validate=True)
+        text = raw.decode("utf-8")
+    except (binascii.Error, ValueError):
+        return None
+    if not text or any(not (ch.isprintable() or ch.isspace()) for ch in text):
+        return None
+    return normalize_text(text)
+
+
+def _encoded_spans(
+    text: str, packs: list[Pack], *, depth: int = _B64_MAX_DEPTH
+) -> list[EntitySpan]:
+    """Spans covering base64 tokens in ``text`` whose decoded content holds an entity."""
+    if depth <= 0 or len(text) < 16:
+        return []
+    out: list[EntitySpan] = []
+    for m in _B64_TOKEN_RE.finditer(text):
+        decoded = _b64_decode_text(m.group(0))
+        if decoded is None:
+            continue
+        inner: list[EntitySpan] = []
+        for pack in packs:
+            inner.extend(pack.detect(decoded))
+        if not inner:
+            inner = _encoded_spans(decoded, packs, depth=depth - 1)
+        if inner:
+            out.append(
+                EntitySpan(
+                    start=m.start(),
+                    end=m.end(),
+                    entity_type=inner[0].entity_type,
+                    text=m.group(0),
+                    score=_B64_SCORE,
+                    source="regex",
+                    jurisdiction=inner[0].jurisdiction,
+                )
+            )
+    return out
 
 
 class Detector:
@@ -108,11 +174,16 @@ class Detector:
 
         def _work() -> list[EntitySpan]:
             out: list[EntitySpan] = []
-            for pack in _load_packs(pack_codes):
+            packs = _load_packs(pack_codes)
+            for pack in packs:
                 try:
                     out.extend(pack.detect(text))
                 except Exception as exc:  # noqa: BLE001 - one bad pack must not sink the pass
                     logger.warning("regex pack detect failed: %s", exc)
+            try:
+                out.extend(_encoded_spans(text, packs))
+            except Exception as exc:  # noqa: BLE001 - never sink the regex pass
+                logger.warning("encoded-payload detect failed: %s", exc)
             return out
 
         return await asyncio.to_thread(_work)
