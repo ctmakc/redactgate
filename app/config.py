@@ -78,6 +78,17 @@ class Settings(BaseSettings):
     audit_hmac_key: str = Field(default="", description="base64 32-byte HMAC key.")
     session_ttl_hours: int = 24
 
+    # ── NEAR audit anchoring (optional) ───────────────────────────────────
+    # When enabled, the worker notarizes each team's audit-chain head on a NEAR contract
+    # every ``near_anchor_interval_min`` minutes (see app/anchor). Only an opaque stream
+    # tag, the event count and the 64-hex head leave the perimeter.
+    near_anchor_enabled: bool = False
+    near_network: Literal["testnet", "mainnet"] = "testnet"
+    near_contract_id: str = ""  # e.g. anchor.redactgate.testnet
+    near_signer_id: str = ""  # account whose key signs anchor() calls
+    near_private_key: str = ""  # ed25519:... — ideally a function-call key limited to anchor()
+    near_anchor_interval_min: int = 10
+
     # ── Auth ──────────────────────────────────────────────────────────────
     admin_token: str = ""  # gates the admin API/UI when set
     require_api_key: bool = True  # if False, a default dev team/policy is used

@@ -21,6 +21,7 @@ dependencies = [
     "python-multipart>=0.0.9",
     "arq>=0.26",
     "redis>=5.0",
+    "pynacl>=1.5",  # ed25519 signing for NEAR audit anchoring
 ]
 
 [project.optional-dependencies]

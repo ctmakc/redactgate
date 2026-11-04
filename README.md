@@ -12,6 +12,20 @@ Client (OpenAI SDK / Cursor / LibreChat)  ──base_url=http://localhost:8088/v
 
 ![RedactGate admin console](docs/dashboard.png)
 
+## NEAR Hackathon 2026: audit anchor on NEAR
+
+**Track: Privacy & Private AI.** RedactGate's audit log is an HMAC hash chain, so whoever holds the key can rewrite it. The new `audit anchor` writes each team's chain head to a NEAR contract every few minutes ([`anchor.redactgate.testnet`](https://testnet.nearblocks.io/address/anchor.redactgate.testnet)). After that, an insider rewrite fails the auditor's check with `head_mismatch`. Only an opaque stream tag, the event count and the head hash go on chain.
+
+```bash
+pytest -q tests/test_near_anchor.py   # 14 tests, no network
+make near-setup                       # free testnet account + contract + anchor-only key
+make near-demo                        # redact → anchor on NEAR → catch an insider rewrite
+```
+
+Details, judge path, code map and disclosure: **[docs/NEAR.md](docs/NEAR.md)**. Hackathon diff: [`pre-hackathon...near-hackathon`](https://github.com/ctmakc/redactgate/compare/pre-hackathon...near-hackathon). Demo video: see the [demo post on X](docs/NEAR.md).
+
+
+
 **Landing page:** a self-contained marketing site lives in [`site/index.html`](site/index.html) (deploy to any static host). A launch kit is in [`docs/LAUNCH.md`](docs/LAUNCH.md).
 
 ## Why it exists

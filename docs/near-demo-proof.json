@@ -1,0 +1,32 @@
+{
+  "contract": "anchor.redactgate.testnet",
+  "network": "testnet",
+  "stream": "rg_894a43ce8e4d866e9dacbbbc",
+  "anchor_tx": "https://testnet.nearblocks.io/txns/2z17huP9NQLxwkyFtyy3xpjTT9WbssaQyUsB6qPggYEi",
+  "anchor": {
+    "events": 3,
+    "head": "20d15995dad445502ed3c27f19536dd082779f303d2e2828c89e57ac4269bb4e",
+    "writer": "redactgate.testnet",
+    "block_height": 276250769,
+    "timestamp_ns": 1793827759876679730,
+    "note": "demo"
+  },
+  "honest_check": {
+    "status": "ok",
+    "detail": "3 of 3 events match the NEAR anchor (block 276250769)",
+    "local_events": 3,
+    "anchored_events": 3,
+    "anchored_head": "20d15995dad445502ed3c27f19536dd082779f303d2e2828c89e57ac4269bb4e",
+    "local_head_at_anchor": "20d15995dad445502ed3c27f19536dd082779f303d2e2828c89e57ac4269bb4e",
+    "first_bad_position": null
+  },
+  "insider_check": {
+    "status": "head_mismatch",
+    "detail": "event 3 hash differs from the head notarized on NEAR at block 276250769: anchored history was rewritten",
+    "local_events": 3,
+    "anchored_events": 3,
+    "anchored_head": "20d15995dad445502ed3c27f19536dd082779f303d2e2828c89e57ac4269bb4e",
+    "local_head_at_anchor": "43742f2d74056d5f407dd2a6f23acb682725bed4ed835dad3c1b923f7b5e287b",
+    "first_bad_position": 3
+  }
+}

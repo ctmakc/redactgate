@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from arq import cron
 from arq.connections import RedisSettings
 
 from app.config import settings
@@ -69,6 +70,24 @@ async def run_fidelity_eval(
     return result
 
 
+async def anchor_audit_heads(ctx: dict[str, Any]) -> list[dict[str, Any]]:
+    """Notarize every team's audit-chain head on NEAR (no-op unless enabled)."""
+    if not settings.near_anchor_enabled:
+        return []
+    from app.anchor.service import run_anchor_pass
+    from app.db import session_scope
+
+    async with session_scope() as session:
+        return await run_anchor_pass(session, note="cron")
+
+
+def _anchor_cron_jobs() -> list:
+    if not settings.near_anchor_enabled:
+        return []
+    step = max(1, min(60, int(settings.near_anchor_interval_min)))
+    return [cron(anchor_audit_heads, minute=set(range(0, 60, step)), run_at_startup=True)]
+
+
 class WorkerSettings:
     """arq worker configuration.
 
@@ -77,6 +96,7 @@ class WorkerSettings:
     ``redis_settings`` parses the DSN only and does not connect to Redis.
     """
 
-    functions = [run_fidelity_eval]
+    functions = [run_fidelity_eval, anchor_audit_heads]
+    cron_jobs = _anchor_cron_jobs()
     redis_settings: RedisSettings = _redis_settings()
 
