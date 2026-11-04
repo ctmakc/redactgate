@@ -46,7 +46,8 @@ auditor: exported chain + get_latest  ──────────────
 | Contract | [`anchor.redactgate.testnet`](https://testnet.nearblocks.io/address/anchor.redactgate.testnet) |
 | Deploy tx | [Cigf4h4d…](https://testnet.nearblocks.io/txns/Cigf4h4dfyXUW6ZigQP5MgWrs8GYi3ETveHgdF1691yf) |
 | Anchor-only key added | [B6T2fscL…](https://testnet.nearblocks.io/txns/B6T2fscL9HziYMxjRNG4YPmCYesZ1x82MGn9pkayPZD1) |
-| Demo anchor | see the latest run in [`docs/near-demo-proof.json`](near-demo-proof.json) |
+| Demo anchor (video run) | [2z17huP9…](https://testnet.nearblocks.io/txns/2z17huP9NQLxwkyFtyy3xpjTT9WbssaQyUsB6qPggYEi), result in [`near-demo-proof.json`](near-demo-proof.json) |
+| Demo video | [X post](https://x.com/mmixbizca/status/2118097092329775117) · [`near-demo.mp4`](near-demo.mp4) (58 s, real terminal recording) |
 
 Read the contract yourself, no account needed:
 

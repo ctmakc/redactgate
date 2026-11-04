@@ -22,7 +22,7 @@ make near-setup                       # free testnet account + contract + anchor
 make near-demo                        # redact → anchor on NEAR → catch an insider rewrite
 ```
 
-Details, judge path, code map and disclosure: **[docs/NEAR.md](docs/NEAR.md)**. Hackathon diff: [`pre-hackathon...near-hackathon`](https://github.com/ctmakc/redactgate/compare/pre-hackathon...near-hackathon). Demo video: see the [demo post on X](docs/NEAR.md).
+Details, judge path, code map and disclosure: **[docs/NEAR.md](docs/NEAR.md)**. Hackathon diff: [`pre-hackathon...near-hackathon`](https://github.com/ctmakc/redactgate/compare/pre-hackathon...near-hackathon). Demo: [post on X with the 58 s video](https://x.com/mmixbizca/status/2118097092329775117) · [video file](docs/near-demo.mp4).
 
 
 
