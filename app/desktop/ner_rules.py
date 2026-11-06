@@ -79,16 +79,27 @@ _P_TWO = [
     re.compile(rf"{NB}(?P<a>{LW}),\s(?P<b>{LW}){NE}"),
 ]
 _PERSON_CUE = re.compile(
-    rf"{NB}(?:ФОП|ФЛП|ФО-П|СПД|СПДФО|ФО|гр\.|громадян(?:ин|ина|ка|ки|ці)|граждан(?:ин|ина|ка)|"
+    rf"{NB}(?i:ФОП|ФЛП|ФО-П|СПД|СПДФО|ФО|гр\.|громадян(?:ин|ина|ка|ки|ці)|граждан(?:ин|ина|ка)|"
     rf"ПІБ|П\.І\.Б\.|ФИО|Ф\.И\.О\.|в\s+особі|в\s+лице|Підписант|Mr\.?|Mrs\.?|Ms\.?|Dr\.?|"
-    rf"Account\s+holder|Cardholder|Full\s+name|Client\s+name|Prepared\s+by|Signed\s+by|Attn\.?|Attention|Dear)"
-    rf"[\s:,]+(?P<v>(?:(?:{CW}|{CU}|{LW}|{LU}|{INIT}|{INIT_L})\s?){{1,3}})",
+    rf"Account\s+holder|Cardholder|Full\s+name|Client\s+name|Prepared\s+by|Signed\s+by|Attn\.?|Attention|Dear|"
+    rf"Contact|Employee|Customer|Tenant|Landlord|Applicant|Claimant|Witness|Beneficiary|Payee|Borrower|Guarantor|"
+    rf"Заявник|Заявитель|Позичальник|Заемщик|Поручитель|Орендар|Арендатор|Свідок|Свидетель|Працівник|Сотрудник|Контактна\s+особа|Контактное\s+лицо)"
+    rf"[\s:,—–-]+(?:(?:Mr|Mrs|Ms|Miss|Dr|Prof|пан|пані|г-н|г-жа)\.?\s+)?(?P<v>(?:(?:{CW}|{CU}|{LW}|{LU}|{INIT}|{INIT_L}),?\s?){{1,3}})",
 )
 _SOLE_TRADER = re.compile(rf"{NB}(?:ФОП|ФЛП|ФО-П|СПД|ИП)\s+(?P<v>(?:{CW}|{CU})(?:\s+(?:{CW}|{CU}|{INIT})){{0,2}})")
 
 
+_LONE_FIRST = re.compile(rf"{NB}[{UP}][{LO}{AP}]+{NE}")
+_SINGLE_SURNAME = re.compile(
+    rf"{NB}(?P<s>[{UP}][{LO}{AP}]+(?:енк[оаиуі]|енком|чук\w{{0,3}}|щук\w{{0,3}}|юк\w{{0,3}}|ишин\w{{0,3}})){NE}"
+)
+
+
 def detect_people(text: str) -> list[EntitySpan]:
     out: list[EntitySpan] = []
+    for m in _SINGLE_SURNAME.finditer(text):
+        if _name_token_ok(m.group("s")) and len(m.group("s")) >= 5:
+            out.append(_span(m, "PERSON", 0.7, "s"))
     for rx in _P_FULL:
         for m in rx.finditer(text):
             toks = m.group(0).split()
@@ -106,8 +117,10 @@ def detect_people(text: str) -> list[EntitySpan]:
         s = m.start("v")
         words = [w for w in re.split(r"\s+", v) if w]
         # trim trailing words that are clearly not name parts
-        while words and not _name_token_ok(words[-1].rstrip(".")):
+        while words and not _name_token_ok(words[-1].rstrip(".,")):
             words.pop()
+        if words:
+            words[-1] = words[-1].rstrip(",")
         if not words:
             continue
         val = " ".join(words) if " ".join(words) in v else v
@@ -117,7 +130,12 @@ def detect_people(text: str) -> list[EntitySpan]:
             continue
         out.append(EntitySpan(start=s, end=end, entity_type="PERSON", text=val, score=0.88, source="regex"))
     for rx in _P_TWO:
-        for m in rx.finditer(text):
+        pos = 0
+        while True:
+            m = rx.search(text, pos)
+            if not m:
+                break
+            pos = m.start("b")  # overlapping: «Пенсионер Сергеев Николай» also tries «Сергеев Николай»
             a, b = m.group("a"), m.group("b")
             if not (_name_token_ok(a) and _name_token_ok(b)):
                 continue
@@ -126,6 +144,11 @@ def detect_people(text: str) -> list[EntitySpan]:
             sb = bool(_STRONG_SURNAME.search(b.casefold()))
             if (fa or fb) or (sa or sb):
                 out.append(_span(m, "PERSON", 0.8 if (fa or fb) else 0.72))
+    # a lone first name («Ваш менеджер — Олена») is still a person
+    for m in _LONE_FIRST.finditer(text):
+        w = m.group(0)
+        if len(w) >= 4 and is_first_name(w) and _name_token_ok(w):
+            out.append(_span(m, "PERSON", 0.6))
     return out
 
 
@@ -164,6 +187,10 @@ _C_CUE_QUOTED = re.compile(
     rf"отримувач\w*|платник\w*|получател\w*|плательщик\w*|постачальник\w*|поставщик\w*|покупець|покупатель)"
     rf"[\s:]*{_QUOTED}"
 )
+_C_CUE_BARE = re.compile(
+    rf"(?i:компані[яюїєі]\w*|компани[яиюей]\w*|фірм[аиоуі]\w*|фирм[аыоуе]\w*|company|firm|vendor|supplier|постачальник\w*|поставщик\w*)"
+    rf"\s+(?P<name>(?:{CW}|{CU}|{LW}|{LU})(?:[- ](?:{CW}|{CU}|{LW}|{LU})){{0,2}}){NE}"
+)
 _EN_STOP_LEAD = re.compile(r"^(?:The|This|That|By|And|Of|For|To|With|From|Between|Dear|An?)\s+")
 
 
@@ -191,6 +218,11 @@ def detect_companies(text: str) -> list[EntitySpan]:
         out.append(EntitySpan(start=s, end=m.end("name"), entity_type="ORG", text=name, score=0.9, source="regex"))
     for m in _C_BANK.finditer(text):
         out.append(_span(m, "ORG", 0.85, "name"))
+    for m in _C_CUE_BARE.finditer(text):
+        name = m.group("name")
+        if stem(name.split()[0]) in NOT_NAME_STEMS or name.split()[0].casefold() in NOT_NAME_STEMS:
+            continue
+        out.append(_span(m, "ORG", 0.8, "name"))
     return out
 
 
@@ -281,6 +313,9 @@ _PHONE = [
     re.compile(r"(?<![\w+])\+\d{1,3}(?:[\s-]?\(?\d{1,4}\)?){2,5}(?!\d)"),
 ]
 _MASKED_CARD = re.compile(r"(?<!\d)\d{4}[ -]?(?:\*{2,4}|X{2,4}|x{2,4})(?:[ -]?(?:\*{2,4}|X{2,4}|x{2,4}))?[ -]?\d{4}(?!\d)|(?<!\d)\d{6}\*{6}\d{4}(?!\d)")
+_CARD_CUE = re.compile(
+    r"(?i:картк\w*|карт[аиуіы]\w*|card(?:\s+number|\s+no\.?)?)\s*[:№#]?\s*(?P<value>\d{4}[ -]?\d{4}[ -]?\d{4}[ -]?\d{4}(?:\d{1,3})?)(?!\d)"
+)
 _PASSPORT = [
     re.compile(r"(?i:паспорт\w*|passport)[^\n\d]{0,30}?(?P<value>(?-i:[А-ЯІЇЄA-Z]{2})\s?№?\s?\d{6}(?!\d))"),
     re.compile(r"(?i:ID-?картк\w*|ID-?карт\w*|ID\s+card|паспорт\w*\s+громадянина\s+України\s+у\s+формі\s+картки)[^\n\d]{0,30}?(?P<value>\d{9})(?!\d)"),
@@ -309,6 +344,8 @@ def detect_misc(text: str, *, amounts: bool = False) -> list[EntitySpan]:
                 out.append(_span(m, "PHONE", 0.8))
     for m in _MASKED_CARD.finditer(text):
         out.append(_span(m, "CREDIT_CARD", 0.9))
+    for m in _CARD_CUE.finditer(text):
+        out.append(_span(m, "CREDIT_CARD", 0.92, "value"))
     for rx in _PASSPORT:
         for m in rx.finditer(text):
             out.append(_span(m, "PASSPORT", 0.93, "value"))

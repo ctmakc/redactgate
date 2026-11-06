@@ -1,0 +1,53 @@
+{
+ "recall": {
+  "ACCOUNT": "2/2",
+  "ADDRESS": "4/4",
+  "CARD": "1/1",
+  "EDRPOU": "1/1",
+  "EMAIL": "3/3",
+  "IPN": "2/2",
+  "ORG": "10/10",
+  "PASSPORT": "1/1",
+  "PERSON": "26/26",
+  "PHONE": "3/3",
+  "SIN": "1/1",
+  "SSN": "1/1"
+ },
+ "overall_recall": 1.0,
+ "person_org_account_recall": 1.0,
+ "misses": [],
+ "false_positives": [],
+ "v2_recall": {
+  "ACCOUNT": "2/2",
+  "ADDRESS": "2/2",
+  "CARD": "1/1",
+  "EDRPOU": "1/1",
+  "EMAIL": "1/1",
+  "IPN": "1/1",
+  "ORG": "6/6",
+  "PERSON": "13/16",
+  "PHONE": "2/2"
+ },
+ "v2_overall_recall": 0.906,
+ "v2_person_org_account_recall": 0.875,
+ "v2_misses": [
+  {
+   "case": 4,
+   "category": "PERSON",
+   "value": "Олена",
+   "output": "Ваш менеджер — Олена, телефон Телефон-1"
+  },
+  {
+   "case": 12,
+   "category": "PERSON",
+   "value": "Ahmed Hassan",
+   "output": "Lease signed by tenant Ahmed Hassan at Адреса-1"
+  },
+  {
+   "case": 17,
+   "category": "PERSON",
+   "value": "Сергеев Николай",
+   "output": "Пенсионер Сергеев Николай, СНИЛС не указан, телефон Телефон-1"
+  }
+ ]
+}

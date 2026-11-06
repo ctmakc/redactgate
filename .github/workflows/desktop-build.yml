@@ -1,0 +1,60 @@
+name: desktop-build
+# Builds RedactGate Desktop natively on macOS (arm64) and Windows, then runs the black-box
+# e2e (synthetic case -> anonymize -> leak check -> restore -> compare) against the BUILT app.
+on:
+  push:
+    branches: ["feat/desktop-anonymizer-*"]
+    paths: ["app/**", "packaging/desktop/**", "eval/desktop/**", ".github/workflows/desktop-build.yml"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r packaging/desktop/requirements-desktop.txt "pyinstaller==6.22.*" python-docx openpyxl pillow
+      - name: macOS icon
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p icon.iconset
+          for s in 16 32 128 256 512; do
+            sips -z $s $s packaging/desktop/icons/icon-1024.png --out icon.iconset/icon_${s}x${s}.png >/dev/null
+            d=$((s*2)); sips -z $d $d packaging/desktop/icons/icon-1024.png --out icon.iconset/icon_${s}x${s}@2x.png >/dev/null
+          done
+          iconutil -c icns icon.iconset -o packaging/desktop/icons/icon.icns
+      - name: PyInstaller
+        run: pyinstaller packaging/desktop/redactgate-desktop.spec --noconfirm --clean
+      - name: Package (macOS dmg)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p out dmg && cp -R "dist/RedactGate Desktop.app" dmg/ && ln -s /Applications dmg/Applications
+          hdiutil create -volname "RedactGate Desktop" -srcfolder dmg -ov -format UDZO out/RedactGate-Desktop-0.1.0-macOS-arm64.dmg
+      - name: Package (Windows installer)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force out | Out-Null
+          & "C:\Program Files (x86)\NSIS\makensis.exe" /V2 /DVERSION=0.1.0 "/DSRCDIR=$PWD\dist\redactgate-desktop" "/DOUTDIR=$PWD\out" "/DLICENSEFILE=$PWD\LICENSE" packaging\desktop\installer.nsi
+      - name: E2E against the built app
+        shell: bash
+        run: |
+          python eval/desktop/make_synthetic.py case --seed 99
+          if [ "$RUNNER_OS" = "macOS" ]; then BIN="dist/RedactGate Desktop.app/Contents/MacOS/RedactGate Desktop"; else BIN="dist/redactgate-desktop/RedactGate Desktop.exe"; fi
+          "$BIN" --no-browser --port 18900 --idle-exit 0 --data-dir "$PWD/rgdata" &
+          for i in $(seq 1 60); do sleep 2; [ -f rgdata/instance.json ] && break; done
+          python eval/desktop/api_roundtrip.py --base http://127.0.0.1:18900 --data-dir rgdata --case case --out out/verify-${{ runner.os }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: redactgate-desktop-${{ runner.os }}
+          path: out/
+          retention-days: 30
