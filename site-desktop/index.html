@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>RedactGate Desktop — анонімайзер документів для роботи з нейромережами</title>
+<meta name="description" content="Програма на ваш комп'ютер: знеособлює PDF, DOCX, XLSX, CSV і скани, замінюючи людей і компанії на Фізособа-1, Юрособа-1, а потім повертає справжні дані у відповідь нейромережі. Працює офлайн.">
+<meta property="og:title" content="RedactGate Desktop — документи в нейромережу без імен клієнтів">
+<meta property="og:description" content="Знеособлення PDF, DOCX, XLSX, CSV і сканів на вашому комп'ютері. Відповідь нейромережі повертається зі справжніми даними. Офлайн.">
+<meta property="og:image" content="img/og.png">
+<meta property="og:type" content="website">
+<link rel="icon" type="image/png" href="img/favicon-32.png">
+<link rel="preload" href="fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+@font-face { font-family: "Geist"; src: url("fonts/Geist-Variable.woff2") format("woff2"); font-weight: 100 900; font-display: swap; }
+@font-face { font-family: "Geist Mono"; src: url("fonts/GeistMono-Variable.woff2") format("woff2"); font-weight: 100 900; font-display: swap; }
+:root {
+  --c-vellum: 20 19 15; --c-leaf: 30 28 22; --c-carbon: 232 227 214; --c-graphite: 163 157 143;
+  --c-rule: 56 53 44; --c-seal: 79 179 188; --c-vermillion: 217 88 63;
+  --bg: rgb(var(--c-vellum)); --surface: rgb(var(--c-leaf)); --ink: rgb(var(--c-carbon)); --ink-2: rgb(var(--c-graphite));
+  --rule: rgb(var(--c-rule)); --seal: rgb(var(--c-seal)); --verm: rgb(var(--c-vermillion));
+  --sans: "Geist", "Segoe UI", system-ui, sans-serif; --mono: "Geist Mono", ui-monospace, Consolas, monospace;
+  --ease: cubic-bezier(.16, 1, .3, 1); --ease-io: cubic-bezier(.65, 0, .35, 1);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body { background: var(--bg); color: var(--ink); font: 16px/1.6 var(--sans); font-feature-settings: "tnum" 1; -webkit-font-smoothing: antialiased; }
+a { color: inherit; }
+img { max-width: 100%; height: auto; display: block; }
+::selection { background: rgb(var(--c-seal) / .25); }
+:focus-visible { outline: 2px solid var(--seal); outline-offset: 2px; }
+.wrap { max-width: 1200px; margin: 0 auto; padding: 0 32px; }
+.eyebrow { font: 500 12.5px/1.4 var(--mono); color: var(--ink-2); }
+.seal { color: var(--seal); }
+
+/* nav */
+nav { position: sticky; top: 0; z-index: 20; background: rgb(var(--c-vellum) / .92); border-bottom: 1px solid var(--rule); backdrop-filter: blur(6px); }
+nav .row { display: flex; align-items: center; justify-content: space-between; gap: 16px; height: 60px; }
+.mark { display: flex; align-items: center; gap: 10px; text-decoration: none; font: 600 15px var(--sans); }
+.mark svg { width: 26px; height: 26px; }
+.mark small { font: 500 11px var(--mono); color: var(--ink-2); margin-left: 4px; }
+@media (max-width: 520px) { .mark small { display: none; } }
+.nav-r { display: flex; align-items: center; gap: 18px; }
+.nav-r a.lk { font: 500 13px var(--mono); color: var(--ink-2); text-decoration: none; }
+.nav-r a.lk:hover { color: var(--ink); }
+.seg { display: inline-flex; border: 1px solid var(--rule); border-radius: 3px; overflow: hidden; }
+.seg button { background: none; border: 0; color: var(--ink-2); font: 500 12px var(--mono); padding: 5px 9px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: rgb(var(--c-carbon) / .1); color: var(--ink); }
+
+/* buttons */
+.btn { display: inline-flex; align-items: center; gap: 10px; padding: 12px 18px; border-radius: 4px; border: 1px solid transparent;
+  font: 500 14px/1.2 var(--mono); text-decoration: none; cursor: pointer; transition: background .16s, border-color .16s, transform .16s var(--ease); }
+.btn:active { transform: translateY(1px); }
+.btn-primary { background: var(--ink); color: var(--bg); }
+.btn-primary:hover { background: rgb(var(--c-carbon) / .86); }
+.btn-ghost { border-color: var(--rule); color: var(--ink); }
+.btn-ghost:hover { border-color: rgb(var(--c-carbon) / .5); }
+.btn small { font-size: 11.5px; opacity: .7; }
+
+/* hero: 5/7 asymmetric split */
+.hero { padding: 72px 0 56px; border-bottom: 1px solid var(--rule); }
+.hero .grid { display: grid; grid-template-columns: 5fr 7fr; gap: 56px; align-items: center; }
+h1 { font: 600 clamp(36px, 4.4vw, 58px)/1.04 var(--sans); letter-spacing: -.03em; }
+h1 .ln { display: block; overflow: hidden; }
+h1 .ln > span { display: block; transform: translateY(105%); animation: rise .9s var(--ease) forwards; animation-delay: calc(var(--i) * 90ms + 80ms); }
+@keyframes rise { to { transform: none; } }
+.lede { margin-top: 22px; font-size: 18px; color: var(--ink-2); max-width: 30em; }
+.dl { margin-top: 30px; display: flex; flex-wrap: wrap; gap: 10px; }
+.dl-note { margin-top: 14px; font: 500 12.5px/1.6 var(--mono); color: var(--ink-2); }
+.dl-note b { color: var(--seal); font-weight: 500; }
+
+/* the custody card (signature) */
+.custody { border: 1px solid var(--rule); background: var(--surface); border-radius: 4px; }
+.custody .side { padding: 22px 24px; font-size: 15.5px; line-height: 1.9; }
+.custody .perim { display: flex; align-items: center; gap: 12px; padding: 0 24px; height: 40px; position: relative; }
+.custody .perim::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px dashed rgb(var(--c-seal) / .65); }
+.custody .perim span { position: relative; background: var(--surface); padding-right: 10px; font: 500 11.5px var(--mono); color: var(--seal); }
+.val { background: linear-gradient(transparent 62%, rgb(var(--c-carbon) / .16) 62%); border-bottom: 1px solid rgb(var(--c-carbon) / .45); }
+.chip { display: inline; padding: 1px 6px; border-radius: 3px; border: 1px solid rgb(var(--c-seal) / .45); background: rgb(var(--c-seal) / .09);
+  font: 500 .9em/1.3 var(--mono); white-space: nowrap; }
+.chip b { color: var(--seal); font-weight: 600; }
+.sw { position: relative; display: inline-block; }
+.sw::before { content: ""; position: absolute; inset: -2px -3px; background: var(--ink); border-radius: 2px; clip-path: inset(0 100% 0 0); }
+.sw .chip { opacity: 0; }
+.play .sw::before { animation: sweep .62s var(--ease-io) forwards; animation-delay: var(--d); }
+.play .sw .chip { animation: show .01s linear forwards; animation-delay: calc(var(--d) + .3s); }
+@keyframes sweep { 0% { clip-path: inset(0 100% 0 0); } 48% { clip-path: inset(0 0 0 0); } 100% { clip-path: inset(0 0 0 100%); } }
+@keyframes show { to { opacity: 1; } }
+.under { background: linear-gradient(var(--seal), var(--seal)) left 100% / 0% 2px no-repeat; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+.play .under { animation: draw .7s var(--ease) forwards; animation-delay: var(--d); }
+@keyframes draw { to { background-size: 100% 2px; } }
+.cap { display: flex; justify-content: space-between; gap: 10px; padding: 10px 24px; border-bottom: 1px solid var(--rule); }
+
+/* sections: ruled rows, left-aligned */
+section.band { padding: 88px 0; border-bottom: 1px solid var(--rule); }
+h2 { font: 600 clamp(28px, 3vw, 40px)/1.12 var(--sans); letter-spacing: -.02em; max-width: 22em; }
+.sub { margin-top: 14px; color: var(--ink-2); max-width: 44em; font-size: 17px; }
+.rows { margin-top: 44px; border-top: 1px solid var(--rule); }
+.row4 { display: grid; grid-template-columns: 72px 4fr 7fr; gap: 24px; padding: 26px 0; border-bottom: 1px solid var(--rule); align-items: baseline; }
+.row4 .n { font: 500 13px var(--mono); color: var(--seal); }
+.row4 h3 { font: 600 20px/1.3 var(--sans); letter-spacing: -.01em; }
+.row4 p { color: var(--ink-2); }
+.js .reveal { clip-path: inset(0 0 100% 0); transform: translateY(14px); transition: clip-path .9s var(--ease), transform .9s var(--ease); transition-delay: var(--d, 0s); }
+.js .reveal.in { clip-path: inset(0 0 -20% 0); transform: none; }
+
+/* screenshots */
+.shots { margin-top: 44px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.frame { border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; background: var(--surface); }
+.frame .bar { height: 30px; display: flex; align-items: center; gap: 6px; padding: 0 12px; border-bottom: 1px solid var(--rule); font: 500 11px var(--mono); color: var(--ink-2); }
+.frame .bar i { width: 9px; height: 9px; border-radius: 50%; background: rgb(var(--c-carbon) / .18); }
+.frame .bar span { margin-left: 8px; }
+.frame figcaption { padding: 12px 14px; font-size: 14px; color: var(--ink-2); border-top: 1px solid var(--rule); }
+.shots .tall { grid-column: 1 / -1; }
+
+/* what it hides */
+.stamps { margin-top: 32px; display: flex; flex-wrap: wrap; gap: 8px; max-width: 900px; }
+.stamp { padding: 6px 11px; border: 1px solid rgb(var(--c-seal) / .5); border-radius: 3px; font: 500 13px var(--mono); }
+.stamp em { font-style: normal; color: var(--seal); margin-left: 6px; }
+.stamp.off { border-color: var(--rule); color: var(--ink-2); }
+.formats { margin-top: 26px; font: 500 13px/1.8 var(--mono); color: var(--ink-2); }
+
+/* demo answer */
+.answer { margin-top: 40px; display: grid; grid-template-columns: 1fr 44px 1fr; }
+.answer .doc { border: 1px solid var(--rule); background: var(--surface); border-radius: 4px; padding: 22px 24px; font-size: 15px; line-height: 1.85; white-space: pre-line; }
+.answer .vp { position: relative; }
+.answer .vp::before { content: ""; position: absolute; top: 0; bottom: 0; left: 50%; border-left: 1px dashed rgb(var(--c-seal) / .6); }
+
+/* facts table */
+.facts { margin-top: 40px; width: 100%; border-collapse: collapse; }
+.facts td { padding: 16px 12px 16px 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+.facts td:first-child { width: 34%; font: 500 13.5px var(--mono); color: var(--ink-2); }
+.facts .warn { color: var(--verm); }
+
+/* downloads table */
+.dlt { margin-top: 36px; width: 100%; border-collapse: collapse; }
+.dlt th { text-align: left; font: 500 12px var(--mono); color: var(--ink-2); padding: 8px 12px 8px 0; border-bottom: 1px solid var(--rule); }
+.dlt td { padding: 16px 12px 16px 0; border-bottom: 1px solid var(--rule); }
+.dlt td.sz { font: 500 13px var(--mono); color: var(--ink-2); white-space: nowrap; }
+.dlt .os { font-weight: 600; }
+.dlt .how { color: var(--ink-2); font-size: 14px; }
+
+footer { padding: 40px 0 56px; color: var(--ink-2); font-size: 14px; }
+footer .row { display: flex; justify-content: space-between; gap: 24px; flex-wrap: wrap; align-items: center; }
+.credit { display: inline-flex; align-items: center; gap: 10px; font-size: 12.5px; color: inherit; text-decoration: none; opacity: .8; }
+.credit span.logo { background: rgba(255, 255, 255, .9); border-radius: 4px; padding: 3px 6px; display: inline-flex; }
+.credit img { height: 30px; width: auto; }
+
+[data-lang-show] { display: none; }
+html[lang="uk"] [data-lang-show="uk"], html[lang="ru"] [data-lang-show="ru"] { display: revert; }
+
+@media (max-width: 900px) {
+  .wrap { padding: 0 16px; }
+  .hero { padding: 40px 0 36px; }
+  .hero .grid, .shots, .answer { grid-template-columns: 1fr; gap: 28px; }
+  .answer .vp { height: 36px; }
+  .answer .vp::before { top: 50%; bottom: auto; left: 0; right: 0; border-left: 0; border-top: 1px dashed rgb(var(--c-seal) / .6); }
+  .row4 { grid-template-columns: 40px 1fr; }
+  .row4 p { grid-column: 2; }
+  section.band { padding: 56px 0; }
+  .nav-r a.lk { display: none; }
+  .dlt th:nth-child(3), .dlt td:nth-child(3) { display: none; }
+  .custody .side { padding: 18px 16px; font-size: 15px; }
+  .facts td:first-child { width: 40%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  h1 .ln > span { animation: none; transform: none; }
+  .sw::before { display: none; } .sw .chip { opacity: 1; animation: none; }
+  .under { background-size: 100% 2px; animation: none; }
+  .reveal { clip-path: none; transform: none; transition: none; }
+}
+</style>
+</head>
+<body>
+<nav><div class="wrap row">
+  <a class="mark" href="#top" aria-label="RedactGate Desktop">
+    <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="10" fill="none" stroke="currentColor" stroke-opacity=".35"/><rect x="12" y="15" width="40" height="6" rx="1.5" fill="currentColor"/><rect x="12" y="29" width="26" height="7" rx="1.5" fill="rgb(79 179 188)"/><rect x="41" y="29" width="11" height="7" rx="1.5" fill="currentColor" opacity=".45"/><rect x="12" y="44" width="34" height="6" rx="1.5" fill="currentColor"/></svg>
+    RedactGate Desktop <small>0.1.0 · preview</small>
+  </a>
+  <div class="nav-r">
+    <a class="lk" href="#how"><span data-lang-show="uk">Як працює</span><span data-lang-show="ru">Как работает</span></a>
+    <a class="lk" href="#safety"><span data-lang-show="uk">Безпека</span><span data-lang-show="ru">Безопасность</span></a>
+    <a class="lk" href="#download"><span data-lang-show="uk">Завантажити</span><span data-lang-show="ru">Скачать</span></a>
+    <div class="seg" role="group" aria-label="Мова"><button type="button" data-set-lang="uk" aria-pressed="true">УКР</button><button type="button" data-set-lang="ru" aria-pressed="false">РУС</button></div>
+  </div>
+</div></nav>
+
+<header class="hero" id="top"><div class="wrap grid">
+  <div>
+    <div class="eyebrow seal" data-lang-show="uk">Програма для Windows, macOS і Linux · працює без інтернету</div>
+    <div class="eyebrow seal" data-lang-show="ru">Программа для Windows, macOS и Linux · работает без интернета</div>
+    <h1 style="margin-top:16px" data-lang-show="uk"><span class="ln"><span style="--i:0">Документи клієнтів</span></span><span class="ln"><span style="--i:1">у нейромережу —</span></span><span class="ln"><span style="--i:2">без їхніх імен.</span></span></h1>
+    <h1 style="margin-top:16px" data-lang-show="ru"><span class="ln"><span style="--i:0">Документы клиентов</span></span><span class="ln"><span style="--i:1">в нейросеть —</span></span><span class="ln"><span style="--i:2">без их имён.</span></span></h1>
+    <p class="lede" data-lang-show="uk">Перетягніть виписки, договори й акти. Програма замінить людей і компанії на «Фізособа-1», «Юрособа-1», рахунки й коди — на свої мітки. Несіть копії в ChatGPT, Claude чи Gemini, а відповідь вставте назад: справжні імена й реквізити повернуться на місце.</p>
+    <p class="lede" data-lang-show="ru">Перетащите выписки, договоры и акты. Программа заменит людей и компании на «Физлицо-1», «Юрлицо-1», счета и коды — на свои метки. Несите копии в ChatGPT, Claude или Gemini, а ответ вставьте обратно: настоящие имена и реквизиты вернутся на место.</p>
+    <div class="dl">
+      <a class="btn btn-primary" href="downloads/RedactGate-Desktop-Setup-0.1.0.exe" download>Windows <small>.exe · 31 MB</small></a>
+      <a class="btn btn-ghost" href="#download">macOS · Linux</a>
+    </div>
+    <p class="dl-note" data-lang-show="uk">Словник міток лишається на вашому комп'ютері, зашифрований вашим паролем. <b>0 вихідних з'єднань</b> — перевірено.</p>
+    <p class="dl-note" data-lang-show="ru">Словарь меток остаётся на вашем компьютере, зашифрованный вашим паролем. <b>0 исходящих соединений</b> — проверено.</p>
+  </div>
+
+  <div class="custody" id="custody" aria-label="Приклад">
+    <div class="cap"><span class="eyebrow" data-lang-show="uk">Виписка · на вашому комп'ютері</span><span class="eyebrow" data-lang-show="ru">Выписка · на вашем компьютере</span><span class="eyebrow">01_vypyska.csv</span></div>
+    <div class="side" data-lang-show="uk">10.10.2026 · ФОП <span class="val">Мельник Ярема Іванович</span> · РНОКПП <span class="val">3208196727</span> · оплата від <span class="val">ТОВ «Агро-Трейд»</span> на рахунок <span class="val">UA21 3052 9900 0002 6007 2335 6600 1</span> — 48 000,00 грн</div>
+    <div class="side" data-lang-show="ru">10.10.2026 · ФЛП <span class="val">Мельник Ярема Иванович</span> · ИНН <span class="val">3208196727</span> · оплата от <span class="val">ООО «Агро-Трейд»</span> на счёт <span class="val">UA21 3052 9900 0002 6007 2335 6600 1</span> — 48 000,00 грн</div>
+    <div class="perim"><span data-lang-show="uk">далі — лише мітки</span><span data-lang-show="ru">дальше — только метки</span></div>
+    <div class="side" data-lang-show="uk">10.10.2026 · ФОП <span class="sw" style="--d:.5s"><span class="chip">Фізособа-<b>1</b></span></span> · РНОКПП <span class="sw" style="--d:.75s"><span class="chip">ІПН-<b>1</b></span></span> · оплата від ТОВ «<span class="sw" style="--d:1s"><span class="chip">Юрособа-<b>1</b></span></span>» на рахунок <span class="sw" style="--d:1.25s"><span class="chip">Рахунок-<b>1</b></span></span> — 48 000,00 грн</div>
+    <div class="side" data-lang-show="ru">10.10.2026 · ФЛП <span class="sw" style="--d:.5s"><span class="chip">Физлицо-<b>1</b></span></span> · ИНН <span class="sw" style="--d:.75s"><span class="chip">ИНН-<b>1</b></span></span> · оплата от ООО «<span class="sw" style="--d:1s"><span class="chip">Юрлицо-<b>1</b></span></span>» на счёт <span class="sw" style="--d:1.25s"><span class="chip">Счёт-<b>1</b></span></span> — 48 000,00 грн</div>
+    <div class="cap" style="border-top:1px solid var(--rule);border-bottom:0"><span class="eyebrow seal" data-lang-show="uk">Що піде в нейромережу</span><span class="eyebrow seal" data-lang-show="ru">Что уйдёт в нейросеть</span><span class="eyebrow">01_vypyska.anon.csv</span></div>
+  </div>
+</div></header>
+
+<section class="band" id="how"><div class="wrap">
+  <div class="eyebrow" data-lang-show="uk">Як це працює</div><div class="eyebrow" data-lang-show="ru">Как это работает</div>
+  <h2 style="margin-top:12px" data-lang-show="uk">Чотири кроки, і справжні дані жодного разу не залишають комп'ютер.</h2>
+  <h2 style="margin-top:12px" data-lang-show="ru">Четыре шага, и настоящие данные ни разу не покидают компьютер.</h2>
+  <div class="rows">
+    <div class="row4 reveal"><span class="n">01</span><h3 data-lang-show="uk">Проєкт на клієнта чи справу</h3><h3 data-lang-show="ru">Проект на клиента или дело</h3>
+      <p data-lang-show="uk">Усередині проєкту однакове значення отримує одну мітку в усіх файлах: «ТОВ «Альфа»» з договору і «АЛЬФА ТОВ» з виписки стануть тією самою Юрособою-2.</p>
+      <p data-lang-show="ru">Внутри проекта одинаковое значение получает одну метку во всех файлах: «ООО «Альфа»» из договора и «АЛЬФА ООО» из выписки станут тем же Юрлицом-2.</p></div>
+    <div class="row4 reveal" style="--d:.06s"><span class="n">02</span><h3 data-lang-show="uk">Перетягніть пачку документів</h3><h3 data-lang-show="ru">Перетащите пачку документов</h3>
+      <p data-lang-show="uk">PDF, DOCX, XLSX, PPTX, CSV, TXT і скани. На виході — файли того самого формату: таблиці лишаються таблицями, форматування договору на місці, метадані «автор» теж знеособлені.</p>
+      <p data-lang-show="ru">PDF, DOCX, XLSX, PPTX, CSV, TXT и сканы. На выходе — файлы того же формата: таблицы остаются таблицами, форматирование договора на месте, метаданные «автор» тоже обезличены.</p></div>
+    <div class="row4 reveal" style="--d:.12s"><span class="n">03</span><h3 data-lang-show="uk">Працюйте з будь-якою нейромережею</h3><h3 data-lang-show="ru">Работайте с любой нейросетью</h3>
+      <p data-lang-show="uk">Завантажуйте копії в ChatGPT, Claude, Gemini чи корпоративний чат. Суми й дати лишаються, тож аналіз, звірка й висновок працюють як зазвичай.</p>
+      <p data-lang-show="ru">Загружайте копии в ChatGPT, Claude, Gemini или корпоративный чат. Суммы и даты остаются, поэтому анализ, сверка и заключение работают как обычно.</p></div>
+    <div class="row4 reveal" style="--d:.18s"><span class="n">04</span><h3 data-lang-show="uk">Поверніть дані у відповідь</h3><h3 data-lang-show="ru">Верните данные в ответ</h3>
+      <p data-lang-show="uk">Вставте текст відповіді або перетягніть файл. Мітки в будь-якому відмінку («з Фізособою-1», «Юрлица-2») стають справжніми іменами. Ваш власний документ повертається байт у байт.</p>
+      <p data-lang-show="ru">Вставьте текст ответа или перетащите файл. Метки в любом падеже («с Физлицом-1», «Юрособи-2») становятся настоящими именами. Ваш собственный документ возвращается байт в байт.</p></div>
+  </div>
+  <div class="shots">
+    <figure class="frame tall reveal"><div class="bar"><i></i><i></i><i></i><span>RedactGate Desktop</span></div><img src="img/app-preview.webp" width="2272" height="1120" loading="lazy" alt="Виписка до і після знеособлення">
+      <figcaption data-lang-show="uk">Ліворуч — оригінал на вашому комп'ютері, праворуч — копія для нейромережі.</figcaption><figcaption data-lang-show="ru">Слева — оригинал на вашем компьютере, справа — копия для нейросети.</figcaption></figure>
+    <figure class="frame reveal" style="--d:.08s"><div class="bar"><i></i><i></i><i></i><span>Повернути дані</span></div><img src="img/app-restore.webp" width="2880" height="1800" loading="lazy" alt="Повернення даних у відповідь нейромережі">
+      <figcaption data-lang-show="uk">Відповідь нейромережі з повернутими іменами та реквізитами.</figcaption><figcaption data-lang-show="ru">Ответ нейросети с возвращёнными именами и реквизитами.</figcaption></figure>
+    <figure class="frame reveal" style="--d:.16s"><div class="bar"><i></i><i></i><i></i><span>Мітки</span></div><img src="img/app-labels.webp" width="2880" height="1800" loading="lazy" alt="Словник міток проєкту">
+      <figcaption data-lang-show="uk">Словник міток: значення приховані, поки не наведете курсор; будь-яке можна виправити або залишити видимим.</figcaption><figcaption data-lang-show="ru">Словарь меток: значения скрыты, пока не наведёте курсор; любое можно исправить или оставить видимым.</figcaption></figure>
+  </div>
+</div></section>
+
+<section class="band"><div class="wrap">
+  <div class="eyebrow" data-lang-show="uk">Що приховує</div><div class="eyebrow" data-lang-show="ru">Что скрывает</div>
+  <h2 style="margin-top:12px" data-lang-show="uk">Люди, компанії й усе, за чим їх можна знайти.</h2>
+  <h2 style="margin-top:12px" data-lang-show="ru">Люди, компании и всё, по чему их можно найти.</h2>
+  <div class="stamps">
+    <span class="stamp">ПІБ, ініціали, підписи<em>Фізособа-1</em></span><span class="stamp">ТОВ, ПП, ФОП, банки, Inc., Ltd.<em>Юрособа-1</em></span>
+    <span class="stamp">IBAN, рахунки<em>Рахунок-1</em></span><span class="stamp">ЄДРПОУ<em>ЄДРПОУ-1</em></span><span class="stamp">ІПН / РНОКПП<em>ІПН-1</em></span>
+    <span class="stamp">картки<em>Картка-1</em></span><span class="stamp">паспорти<em>Паспорт-1</em></span><span class="stamp">адреси<em>Адреса-1</em></span>
+    <span class="stamp">телефони<em>Телефон-1</em></span><span class="stamp">пошта<em>Пошта-1</em></span><span class="stamp">SIN, SSN, EIN, BN, ПДВ ЄС</span>
+    <span class="stamp">дати народження</span><span class="stamp off" data-lang-show="uk">суми — за бажанням</span><span class="stamp off" data-lang-show="ru">суммы — по желанию</span>
+  </div>
+  <p class="formats">PDF · DOCX · XLSX · PPTX · CSV · TXT · PNG/JPG/TIFF (OCR Tesseract) &nbsp;·&nbsp; мітки: Фізособа-1 / Физлицо-1 / Person-1</p>
+</div></section>
+
+<section class="band" id="demo"><div class="wrap">
+  <div class="eyebrow" data-lang-show="uk">Демо аудитора всередині програми</div><div class="eyebrow" data-lang-show="ru">Демо аудитора внутри программы</div>
+  <h2 style="margin-top:12px" data-lang-show="uk">Дві виписки, договір, акт, рахунок і скан — туди й назад.</h2>
+  <h2 style="margin-top:12px" data-lang-show="ru">Две выписки, договор, акт, счёт и скан — туда и обратно.</h2>
+  <p class="sub" data-lang-show="uk">Кнопка «Відкрити демо аудитора» створює проєкт на синтетичних даних (реальних клієнтів там немає), знеособлює 7 файлів і дає зразок висновку з мітками. Повернення робить із нього документ зі справжніми назвами.</p>
+  <p class="sub" data-lang-show="ru">Кнопка «Открыть демо аудитора» создаёт проект на синтетических данных (реальных клиентов там нет), обезличивает 7 файлов и даёт образец заключения с метками. Возврат делает из него документ с настоящими названиями.</p>
+  <div class="answer" id="answer">
+    <div class="doc"><span class="eyebrow seal">Відповідь нейромережі</span>
+1. Найбільші контрагенти: <span class="chip">Юрособа-<b>7</b></span> (код <span class="chip">ЄДРПОУ-<b>7</b></span>), <span class="chip">Юрособа-<b>5</b></span>.
+2. Платежі на користь <span class="chip">Фізособа-<b>1</b></span>: перевірити договори й акти.
+3. Договір між <span class="chip">Юрособа-<b>11</b></span> та <span class="chip">Юрособа-<b>4</b></span> підписав <span class="chip">Фізособа-<b>9</b></span>.</div>
+    <div class="vp"></div>
+    <div class="doc"><span class="eyebrow">Після повернення · на вашому комп'ютері</span>
+1. Найбільші контрагенти: <span class="under" style="--d:.1s">Фарм-Консалт</span> (код <span class="under" style="--d:.2s">35145748</span>), <span class="under" style="--d:.3s">Агро-Рітейл</span>.
+2. Платежі на користь <span class="under" style="--d:.4s">ЛИСЕНКО ОЛЕКСАНДР СЕВЕРИНОВИЧ</span>: перевірити договори й акти.
+3. Договір між <span class="under" style="--d:.5s">Хлібплюс</span> та <span class="under" style="--d:.6s">Інвестпостач</span> підписав <span class="under" style="--d:.7s">Мельник М.Д.</span></div>
+  </div>
+</div></section>
+
+<section class="band" id="safety"><div class="wrap">
+  <div class="eyebrow" data-lang-show="uk">Безпека й перевірка</div><div class="eyebrow" data-lang-show="ru">Безопасность и проверка</div>
+  <h2 style="margin-top:12px" data-lang-show="uk">Що ми перевірили, і що поки не готово.</h2>
+  <h2 style="margin-top:12px" data-lang-show="ru">Что мы проверили, и что пока не готово.</h2>
+  <table class="facts" data-lang-show="uk"><tbody>
+    <tr><td>Мережа</td><td>Програма слухає тільки 127.0.0.1 і сама блокує будь-яке з'єднання назовні. Перевірено: Windows-збірка у Wine та Linux-пакет у контейнерах без мережі, AppImage під strace — 0 мережевих з'єднань.</td></tr>
+    <tr><td>Сховище міток</td><td>Один файл на комп'ютері. Значення — AES-256-GCM, ключ із вашого пароля через scrypt. Назви проєктів і файлів теж зашифровані.</td></tr>
+    <tr><td>Точність (синтетичні дані)</td><td>5 синтетичних справ, 822 значення: знайдено 100% ПІБ, компаній, рахунків, кодів. Окремий набір фраз, написаних без підгонки правил, дав 87,5% по людях/компаніях/рахунках; пропуски виправлено. Перед відправкою все одно гляньте на копію.</td></tr>
+    <tr><td>Повернення</td><td>Свій знеособлений документ повертається точно: TXT і CSV — байт у байт, DOCX і XLSX — текст кожного абзацу й клітинки, PDF — текст сторінок.</td></tr>
+    <tr><td class="warn">Підпис коду</td><td>Установники поки не підписані сертифікатом. Windows покаже SmartScreen («Докладніше → Все одно запустити»), macOS — «Відкрити» через правий клік.</td></tr>
+    <tr><td class="warn">Скани</td><td>Розпізнавання сканів потребує Tesseract OCR на комп'ютері (у Linux-пакеті — рекомендована залежність). Без нього скан не обробляється й файл не видається.</td></tr>
+  </tbody></table>
+  <table class="facts" data-lang-show="ru"><tbody>
+    <tr><td>Сеть</td><td>Программа слушает только 127.0.0.1 и сама блокирует любое соединение наружу. Проверено: Windows-сборка в Wine и Linux-пакет в контейнерах без сети, AppImage под strace — 0 сетевых соединений.</td></tr>
+    <tr><td>Хранилище меток</td><td>Один файл на компьютере. Значения — AES-256-GCM, ключ из вашего пароля через scrypt. Названия проектов и файлов тоже зашифрованы.</td></tr>
+    <tr><td>Точность (синтетические данные)</td><td>5 синтетических дел, 822 значения: найдено 100% ФИО, компаний, счетов, кодов. Отдельный набор фраз, написанных без подгонки правил, дал 87,5% по людям/компаниям/счетам; пропуски исправлены. Перед отправкой всё равно взгляните на копию.</td></tr>
+    <tr><td>Возврат</td><td>Свой обезличенный документ возвращается точно: TXT и CSV — байт в байт, DOCX и XLSX — текст каждого абзаца и ячейки, PDF — текст страниц.</td></tr>
+    <tr><td class="warn">Подпись кода</td><td>Установщики пока не подписаны сертификатом. Windows покажет SmartScreen («Подробнее → Выполнить в любом случае»), macOS — «Открыть» через правый клик.</td></tr>
+    <tr><td class="warn">Сканы</td><td>Распознавание сканов требует Tesseract OCR на компьютере (в Linux-пакете — рекомендуемая зависимость). Без него скан не обрабатывается и файл не выдаётся.</td></tr>
+  </tbody></table>
+</div></section>
+
+<section class="band" id="download"><div class="wrap">
+  <div class="eyebrow" data-lang-show="uk">Завантажити · превью-версія 0.1.0</div><div class="eyebrow" data-lang-show="ru">Скачать · превью-версия 0.1.0</div>
+  <h2 style="margin-top:12px" data-lang-show="uk">Встановлюється без прав адміністратора.</h2>
+  <h2 style="margin-top:12px" data-lang-show="ru">Устанавливается без прав администратора.</h2>
+  <table class="dlt"><thead><tr><th>ОС</th><th>Файл</th><th></th><th></th></tr></thead><tbody id="dl-rows">
+    <tr><td class="os">Windows 10/11</td><td><a href="downloads/RedactGate-Desktop-Setup-0.1.0.exe" download>RedactGate-Desktop-Setup-0.1.0.exe</a></td><td class="how">установник, вікно в Edge/Chrome</td><td class="sz" data-size="downloads/RedactGate-Desktop-Setup-0.1.0.exe">33 MB</td></tr>
+    <tr id="row-mac"><td class="os">macOS 13+ (Apple Silicon)</td><td><a href="downloads/RedactGate-Desktop-0.1.0-macOS-arm64.dmg" download>RedactGate-Desktop-0.1.0-macOS-arm64.dmg</a></td><td class="how">перетягнути в Applications</td><td class="sz" data-size="downloads/RedactGate-Desktop-0.1.0-macOS-arm64.dmg">—</td></tr>
+    <tr><td class="os">Linux (Ubuntu 22.04+)</td><td><a href="downloads/RedactGate-Desktop-0.1.0-x86_64.AppImage" download>RedactGate-Desktop-0.1.0-x86_64.AppImage</a></td><td class="how">chmod +x і запустити</td><td class="sz" data-size="downloads/RedactGate-Desktop-0.1.0-x86_64.AppImage">61 MB</td></tr>
+    <tr><td class="os">Debian / Ubuntu</td><td><a href="downloads/redactgate-desktop_0.1.0_amd64.deb" download>redactgate-desktop_0.1.0_amd64.deb</a></td><td class="how">sudo apt install ./…deb</td><td class="sz" data-size="downloads/redactgate-desktop_0.1.0_amd64.deb">48 MB</td></tr>
+  </tbody></table>
+  <p class="dl-note" style="margin-top:18px">SHA-256: <a href="downloads/SHA256SUMS.txt">SHA256SUMS.txt</a> · AGPL-3.0 · <a href="https://github.com/ctmakc/redactgate" rel="noopener">github.com/ctmakc/redactgate</a></p>
+</div></section>
+
+<footer><div class="wrap row">
+  <span>RedactGate Desktop · INNOVA CONSULT LTD</span>
+  <a class="credit" href="https://mmix.ua/" target="_blank" rel="noopener"><span data-lang-show="uk">Розробка та просування сайтів —</span><span data-lang-show="ru">Разработка и продвижение сайтов —</span>
+    <span class="logo"><img src="mmix-logo.png" alt="MMIX — Marketing Mix" width="62" height="60"></span></a>
+</div></footer>
+
+<script>
+(function () {
+  var html = document.documentElement;
+  html.classList.add("js");
+  function setLang(l) {
+    html.lang = l;
+    document.querySelectorAll("[data-set-lang]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.setLang === l)); });
+    try { localStorage.setItem("rgd-lang", l); } catch (e) {}
+  }
+  var saved = null; try { saved = localStorage.getItem("rgd-lang"); } catch (e) {}
+  setLang(saved || ((navigator.language || "").slice(0, 2) === "ru" ? "ru" : "uk"));
+  document.querySelectorAll("[data-set-lang]").forEach(function (b) { b.addEventListener("click", function () { setLang(b.dataset.setLang); }); });
+  // hero custody: the bar sweeps once the card is on screen
+  var io = new IntersectionObserver(function (es) {
+    es.forEach(function (e) {
+      if (!e.isIntersecting) return;
+      var kids = e.target.querySelectorAll(":scope > .reveal");
+      if (kids.length) kids.forEach(function (k) { k.classList.add("in"); }); else e.target.classList.add("play");
+      io.unobserve(e.target);
+    });
+  }, { threshold: .12 });
+  ["custody", "answer"].forEach(function (id) { var el = document.getElementById(id); if (el) io.observe(el); });
+  // clip-path makes an element invisible to IntersectionObserver, so watch the parents
+  var seen = [];
+  document.querySelectorAll(".reveal").forEach(function (el) { if (seen.indexOf(el.parentNode) < 0) { seen.push(el.parentNode); io.observe(el.parentNode); } });
+  // hide the macOS row until the build is uploaded; show real sizes
+  document.querySelectorAll("[data-size]").forEach(function (td) {
+    fetch(td.dataset.size, { method: "HEAD" }).then(function (r) {
+      var n = +r.headers.get("content-length");
+      if (!r.ok || !n) { if (td.closest("#row-mac")) td.closest("tr").style.display = "none"; return; }
+      td.textContent = Math.round(n / 1048576) + " MB";
+    }).catch(function () {});
+  });
+})();
+</script>
+</body>
+</html>
