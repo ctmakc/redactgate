@@ -325,7 +325,8 @@ class Case:
                 page = doc.new_page(width=595, height=842)
                 y = 60
         doc.set_metadata({"title": title, "author": author or "", "producer": "synthetic"})
-        return doc.tobytes()
+        doc.subset_fonts()
+        return doc.tobytes(garbage=3, deflate=True)
 
     def pdf_act(self, doc: str) -> bytes:
         a, b = self.client, self.companies[3]

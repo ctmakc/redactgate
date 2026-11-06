@@ -1,0 +1,5 @@
+# Windows build of RedactGate Desktop under Wine (Python 3.12 for Windows + PyInstaller + NSIS).
+FROM tobix/pywine:3.12
+RUN apt-get update && apt-get install -y --no-install-recommends nsis && rm -rf /var/lib/apt/lists/*
+COPY requirements-desktop.txt /tmp/requirements-desktop.txt
+RUN wine python -m pip install --no-cache-dir -r /tmp/requirements-desktop.txt "pyinstaller==6.22.*" 2>&1 | tail -3

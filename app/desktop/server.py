@@ -28,7 +28,7 @@ from urllib.parse import parse_qs, quote, unquote, urlparse
 from app.desktop import __version__, netguard
 from app.desktop import labels as L
 from app.desktop.engine import Anonymizer, Options
-from app.desktop.formats import SUPPORTED_EXT, UnsupportedFormat, find_tesseract, kind_of
+from app.desktop.formats import SUPPORTED_EXT, OcrUnavailable, UnsupportedFormat, find_tesseract, kind_of
 from app.desktop.pipeline import anonymize_file, prescan_files, restore_file
 from app.desktop.vaultdb import BadPassword, LabelVault, VaultLocked
 
@@ -408,7 +408,11 @@ def run_batch(app: AppState, pid: str, proj: dict, files: list[tuple[str, bytes]
     results = []
     t0 = time.time()
     if direction == "anonymize":
-        prescan_files(app.anon, pid, files, options=opts)
+        try:
+            prescan_files(app.anon, pid, files, options=opts)
+        except OcrUnavailable:
+            # prescan the files that do not need OCR; those that do will report the error below
+            prescan_files(app.anon, pid, [f for f in files if kind_of(f[0]) not in ("image", "pdf")], options=opts)
     for name, data in files:
         try:
             if direction == "anonymize":
@@ -417,6 +421,10 @@ def run_batch(app: AppState, pid: str, proj: dict, files: list[tuple[str, bytes]
                 res = restore_file(app.anon, pid, name, data)
         except UnsupportedFormat:
             results.append({"name": name, "error": "unsupported"})
+            continue
+        except OcrUnavailable as exc:
+            log.warning("ocr unavailable for a file: %s", exc)
+            results.append({"name": name, "error": "ocr"})
             continue
         except Exception as exc:  # noqa: BLE001
             log.error("file failed: %s %s", type(exc).__name__, traceback.format_exc(limit=4))

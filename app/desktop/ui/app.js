@@ -386,7 +386,7 @@ function resultsBlock(results) {
       h("thead", {}, h("tr", {}, h("th", {}, T("file")), h("th", {}, T("found")), h("th", { class: "hide-sm" }, T("time")), h("th", {}))),
       h("tbody", {}, results.map((r, i) => h("tr", { class: "res-row", "aria-selected": String(i === selIdx), onclick: () => { S.sel[S.pid] = i; render(); } },
         h("td", {}, r.out_name || r.name),
-        h("td", {}, r.error ? h("span", { class: "stamp stamp-warn" }, r.error === "unsupported" ? T("unsupported") : T("failed")) : countsLine(r.counts)),
+        h("td", {}, r.error ? h("span", { class: "stamp stamp-warn", title: r.error === "ocr" ? T("no_ocr") : "" }, r.error === "unsupported" ? T("unsupported") : r.error === "ocr" ? T("ocr_failed") : T("failed")) : countsLine(r.counts)),
         h("td", { class: "num hide-sm" }, r.seconds != null ? `${r.seconds} s` : ""),
         h("td", { style: "text-align:right" }, r.id ? h("a", { class: "btn btn-seal btn-sm", href: dl(r.id), onclick: (e) => e.stopPropagation() }, T("download")) : null)))))),
     cur && !cur.error ? h("div", { class: "custody", style: "margin-top:22px" },

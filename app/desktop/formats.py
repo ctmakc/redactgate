@@ -49,6 +49,32 @@ class UnsupportedFormat(ValueError):
     pass
 
 
+class OcrUnavailable(RuntimeError):
+    """A page needs OCR (scan / image) and local Tesseract is missing or failed.
+
+    Raised instead of returning the page untouched: an unprocessed scan must never come out
+    looking like an anonymized copy."""
+
+
+def clean_env() -> dict:
+    """Environment for child processes (Tesseract, the browser window).
+
+    A PyInstaller one-dir build prepends its bundled libraries to LD_LIBRARY_PATH (Linux) /
+    DYLD_* (macOS); system programs started with that environment load the wrong libssl,
+    libstdc++ … and die. Restore what the user had."""
+    env = dict(os.environ)
+    if getattr(sys, "frozen", False):
+        for var in ("LD_LIBRARY_PATH", "DYLD_LIBRARY_PATH", "DYLD_FRAMEWORK_PATH"):
+            orig = env.pop(var + "_ORIG", None)
+            if orig is not None:
+                env[var] = orig
+            else:
+                env.pop(var, None)
+        env.pop("TCL_LIBRARY", None)
+        env.pop("TK_LIBRARY", None)
+    return env
+
+
 def kind_of(name: str) -> str:
     ext = Path(name).suffix.lower()
     if ext in CSV_EXT:
@@ -523,8 +549,9 @@ def find_tesseract() -> str | None:
 
 
 def tesseract_langs(exe: str) -> str:
+    kw = {"creationflags": 0x08000000} if os.name == "nt" else {}
     try:
-        out = subprocess.run([exe, "--list-langs"], capture_output=True, text=True, timeout=20).stdout
+        out = subprocess.run([exe, "--list-langs"], capture_output=True, text=True, timeout=20, env=clean_env(), **kw).stdout
     except Exception:  # noqa: BLE001
         return "eng"
     have = {ln.strip() for ln in out.splitlines()[1:]}
@@ -536,13 +563,18 @@ def ocr_words(png: bytes) -> list[tuple[str, tuple[float, float, float, float], 
     """Run local Tesseract on an image; return words with pixel boxes and line keys."""
     exe = find_tesseract()
     if not exe:
-        return []
+        raise OcrUnavailable("Tesseract OCR not found")
     with tempfile.TemporaryDirectory(prefix="rg-ocr-") as td:
         img = os.path.join(td, "page.png")
         Path(img).write_bytes(png)
         kw = {"creationflags": 0x08000000} if os.name == "nt" else {}
-        proc = subprocess.run([exe, img, "stdout", "-l", tesseract_langs(exe), "--psm", "3", "tsv"],
-                              capture_output=True, timeout=300, **kw)
+        try:
+            proc = subprocess.run([exe, img, "stdout", "-l", tesseract_langs(exe), "--psm", "3", "tsv"],
+                                  capture_output=True, timeout=300, env=clean_env(), **kw)
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise OcrUnavailable(f"Tesseract failed to start: {type(exc).__name__}") from exc
+        if proc.returncode != 0:
+            raise OcrUnavailable(f"Tesseract exit code {proc.returncode}")
         lines = proc.stdout.decode("utf-8", "replace").splitlines()
     words = []
     for ln in lines[1:]:
@@ -635,7 +667,7 @@ class PdfHandler:
         out = []
         for page in doc:
             t, _, _ = self._spans(page)
-            if self._is_scan(page, t) and find_tesseract():
+            if self._is_scan(page, t):
                 t, _ = self._ocr_page(page)
             out.append(Unit(t))
         md = doc.metadata or {}
@@ -662,8 +694,7 @@ class PdfHandler:
         for page in doc:
             text, spans, nodes = self._spans(page)
             if scan_input or self._is_scan(page, text):
-                if find_tesseract():
-                    self._rewrite_scan(page, fn, reg)
+                self._rewrite_scan(page, fn, reg)  # raises OcrUnavailable rather than pass a scan through
                 continue
             reps = fn(text, None)
             if not reps:
@@ -783,7 +814,7 @@ class ImageHandler:
         import pymupdf
 
         doc = pymupdf.open(stream=pdf, filetype="pdf")
-        return [Unit(h._ocr_page(p)[0]) for p in doc] if find_tesseract() else []
+        return [Unit(h._ocr_page(p)[0]) for p in doc]
 
     def rewrite(self, data: bytes, fn: UnitFn) -> bytes:
         return PdfHandler().rewrite(self._to_pdf(data), fn, scan_input=True)

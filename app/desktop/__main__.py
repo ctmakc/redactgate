@@ -72,11 +72,21 @@ def open_window(url: str, data_dir: Path) -> str:
                 kw = {}
                 if os.name == "nt":
                     kw["creationflags"] = 0x00000008 | 0x00000200  # DETACHED_PROCESS | NEW_PROCESS_GROUP
+                from app.desktop.formats import clean_env
+
                 subprocess.Popen([exe, f"--app={url}", f"--user-data-dir={profile}", *_APP_FLAGS],
-                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **kw)
+                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=clean_env(), **kw)
                 return exe
             except OSError:
                 continue
+    if platform.system() == "Linux":
+        from app.desktop.formats import clean_env
+
+        try:
+            subprocess.Popen(["xdg-open", url], env=clean_env(), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            return "xdg-open"
+        except OSError:
+            pass
     webbrowser.open(url)
     return "default-browser"
 

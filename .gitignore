@@ -42,3 +42,4 @@ docs/hack-apertus/video/out/
 track_2b/out/
 .venv-desktop/
 eval/desktop/out/
+dist-desktop/
