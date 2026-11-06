@@ -709,6 +709,10 @@ class PdfHandler:
             doc.del_xml_metadata()
         except Exception:  # noqa: BLE001
             pass
+        try:
+            doc.subset_fonts()
+        except Exception:  # noqa: BLE001
+            pass
         return doc.tobytes(garbage=3, deflate=True)
 
     def _rewrite_scan(self, page, fn: UnitFn, font) -> None:

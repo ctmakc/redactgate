@@ -34,6 +34,10 @@ def _call(handler, method, data, *args, name=""):
     return getattr(handler, method)(data, *args)
 
 
+def res_kind(name: str) -> str:
+    return kind_of(name)
+
+
 def _preview(units_in: list[str], units_out: list[str], limit: int = 20000) -> tuple[str, str]:
     a = "\n".join(u for u in units_in if u.strip())
     b = "\n".join(u for u in units_out if u.strip())
@@ -69,6 +73,10 @@ def anonymize_file(anon: Anonymizer, pid: str, name: str, data: bytes, *, lang: 
     for c, _n, _s in st.occurrences:
         counts[c] = counts.get(c, 0) + 1
     pin, pout = _preview(units_in, st.units_out)
+    if res_kind(name) in ("text", "csv"):
+        from app.desktop.formats import decode_text
+
+        pin, pout = decode_text(data)[0][:20000], decode_text(out)[0][:20000]
     res = FileResult(name=name, out_name=output_name(name, ".anon"), kind=kind_of(name), data=out,
                      counts=counts, labels=len({(c, n) for c, n in seq}), preview_in=pin, preview_out=pout,
                      seconds=round(time.time() - t0, 3))
@@ -98,6 +106,10 @@ def restore_file(anon: Anonymizer, pid: str, name: str, data: bytes) -> FileResu
     for (_p, c, _n), k in st.counts.items():
         counts[c] = counts.get(c, 0) + k
     pin, pout = _preview(units_in, units_out)
+    if res_kind(name) in ("text", "csv"):
+        from app.desktop.formats import decode_text
+
+        pin, pout = decode_text(data)[0][:20000], decode_text(out)[0][:20000]
     stem_name = name
     for suf in (".anon",):
         stem_name = stem_name.replace(suf + ".", ".")

@@ -1,0 +1,1071 @@
+{
+ "seed": null,
+ "documents": {
+  "01_vypyska_pryvatbank_zhovten.csv": [
+   {
+    "category": "PERSON",
+    "value": "ЛИСЕНКО ОЛЕКСАНДР СЕВЕРИНОВИЧ"
+   },
+   {
+    "category": "IPN",
+    "value": "4866283601"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA643348510000026511174432568"
+   },
+   {
+    "category": "ORG",
+    "value": "Еко-Систем"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "35237740"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA273348510000026326270586021"
+   },
+   {
+    "category": "ORG",
+    "value": "Логістик-Постач"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "34791217"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA023348510000026526309765828"
+   },
+   {
+    "category": "PERSON",
+    "value": "Чорновол Зеновій Северинович"
+   },
+   {
+    "category": "IPN",
+    "value": "3208196727"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA673348510000026435281449766"
+   },
+   {
+    "category": "ORG",
+    "value": "Еко-Систем"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "35237740"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA273348510000026326270586021"
+   },
+   {
+    "category": "ORG",
+    "value": "Нафто-Інжиніринг"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "43141825"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA283348510000026205258983194"
+   },
+   {
+    "category": "ORG",
+    "value": "Логістик-Постач"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "34791217"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA023348510000026526309765828"
+   },
+   {
+    "category": "ORG",
+    "value": "Інвестпостач"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "37315753"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA053052990000026210521854914"
+   },
+   {
+    "category": "ORG",
+    "value": "Агро-Рітейл"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "39309646"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA573253650000026642300487645"
+   },
+   {
+    "category": "PERSON",
+    "value": "Руденко Марія Миронівна"
+   },
+   {
+    "category": "IPN",
+    "value": "1784726714"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA983348510000026241968982104"
+   },
+   {
+    "category": "PERSON",
+    "value": "Лисенко О.С."
+   },
+   {
+    "category": "IPN",
+    "value": "4866283601"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA983510050000026555974754072"
+   },
+   {
+    "category": "ORG",
+    "value": "Карпат-Консалт"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "30943814"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA343510050000026037038265384"
+   },
+   {
+    "category": "ORG",
+    "value": "Фарм-Консалт"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "35145748"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA413348510000026906688281126"
+   },
+   {
+    "category": "ORG",
+    "value": "Фарм-Консалт"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "35145748"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA413348510000026906688281126"
+   },
+   {
+    "category": "PERSON",
+    "value": "Возняк Ірина Зеновіївна"
+   },
+   {
+    "category": "IPN",
+    "value": "9871689768"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA023808050000026336882834728"
+   },
+   {
+    "category": "ORG",
+    "value": "Світ-Трейд"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "33946427"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA523052990000026041189557990"
+   },
+   {
+    "category": "ORG",
+    "value": "Світ-Трейд"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "33946427"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA523052990000026041189557990"
+   },
+   {
+    "category": "ORG",
+    "value": "Світ-Трейд"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "33946427"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA523052990000026041189557990"
+   },
+   {
+    "category": "ORG",
+    "value": "Фарм-Консалт"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "35145748"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA413348510000026906688281126"
+   },
+   {
+    "category": "ORG",
+    "value": "Нафто-Інжиніринг"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "43141825"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA283348510000026205258983194"
+   },
+   {
+    "category": "ORG",
+    "value": "Фарм-Консалт"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "35145748"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA413348510000026906688281126"
+   },
+   {
+    "category": "ORG",
+    "value": "Енерго-Рітейл"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "34220771"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA363253650000026645060454146"
+   },
+   {
+    "category": "ORG",
+    "value": "Агро-Рітейл"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "39309646"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA573253650000026642300487645"
+   },
+   {
+    "category": "PERSON",
+    "value": "Дорошенко Олена Іванівна"
+   },
+   {
+    "category": "IPN",
+    "value": "8754751779"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA263052990000026159212363608"
+   },
+   {
+    "category": "ORG",
+    "value": "Еко-Систем"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "35237740"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA273348510000026326270586021"
+   },
+   {
+    "category": "ORG",
+    "value": "Енерго-Рітейл"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "34220771"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA363253650000026645060454146"
+   },
+   {
+    "category": "ORG",
+    "value": "Агро-Рітейл"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "39309646"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA573253650000026642300487645"
+   },
+   {
+    "category": "ORG",
+    "value": "Інвестпостач"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "37315753"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA053052990000026210521854914"
+   },
+   {
+    "category": "ORG",
+    "value": "Логістик-Постач"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "34791217"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA023348510000026526309765828"
+   },
+   {
+    "category": "ORG",
+    "value": "Інвестпостач"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "37315753"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA053052990000026210521854914"
+   },
+   {
+    "category": "ORG",
+    "value": "Агро-Рітейл"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "39309646"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA573253650000026642300487645"
+   },
+   {
+    "category": "ORG",
+    "value": "Фарм-Консалт"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "35145748"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA413348510000026906688281126"
+   },
+   {
+    "category": "PERSON",
+    "value": "МАРЧЕНКО БОЖЕНА СЕРГІЇВНА"
+   },
+   {
+    "category": "IPN",
+    "value": "0599728379"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA133348510000026678073608724"
+   },
+   {
+    "category": "PERSON",
+    "value": "Ткаченко О.Ю."
+   },
+   {
+    "category": "IPN",
+    "value": "1884472940"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA433052990000026953918276116"
+   },
+   {
+    "category": "ORG",
+    "value": "Логістик-Сервіс"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "32108593"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA383052990000026859406925666"
+   },
+   {
+    "category": "ORG",
+    "value": "Нафто-Інжиніринг"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "43141825"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA283348510000026205258983194"
+   },
+   {
+    "category": "ORG",
+    "value": "Хлібплюс"
+   }
+  ],
+  "02_vypyska_oschadbank_zhovten.xlsx": [
+   {
+    "category": "ACCOUNT",
+    "value": "UA163004650000026776472587718"
+   },
+   {
+    "category": "ORG",
+    "value": "Хлібплюс"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "34419851"
+   },
+   {
+    "category": "PERSON",
+    "value": "Возняк І.З."
+   },
+   {
+    "category": "IPN",
+    "value": "9871689768"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA213253650000026704121430490"
+   },
+   {
+    "category": "ORG",
+    "value": "Фарм-Консалт"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "35145748"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA413348510000026906688281126"
+   },
+   {
+    "category": "ORG",
+    "value": "Нафто-Інжиніринг"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "43141825"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA283348510000026205258983194"
+   },
+   {
+    "category": "ORG",
+    "value": "Енерго-Рітейл"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "34220771"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA363253650000026645060454146"
+   },
+   {
+    "category": "ORG",
+    "value": "Інвестпостач"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "37315753"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA053052990000026210521854914"
+   },
+   {
+    "category": "ORG",
+    "value": "Агро-Рітейл"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "39309646"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA573253650000026642300487645"
+   },
+   {
+    "category": "ORG",
+    "value": "Карпат-Консалт"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "30943814"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA343510050000026037038265384"
+   },
+   {
+    "category": "ORG",
+    "value": "Карпат-Консалт"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "30943814"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA343510050000026037038265384"
+   },
+   {
+    "category": "ORG",
+    "value": "Нафто-Інжиніринг"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "43141825"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA283348510000026205258983194"
+   },
+   {
+    "category": "ORG",
+    "value": "Світ-Трейд"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "33946427"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA523052990000026041189557990"
+   },
+   {
+    "category": "ORG",
+    "value": "Світ-Трейд"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "33946427"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA523052990000026041189557990"
+   },
+   {
+    "category": "ORG",
+    "value": "Еко-Систем"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "35237740"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA273348510000026326270586021"
+   },
+   {
+    "category": "PERSON",
+    "value": "РУДЕНКО МАРІЯ МИРОНІВНА"
+   },
+   {
+    "category": "IPN",
+    "value": "1784726714"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA903253650000026447967452198"
+   },
+   {
+    "category": "ORG",
+    "value": "Агро-Рітейл"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "39309646"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA573253650000026642300487645"
+   },
+   {
+    "category": "ORG",
+    "value": "Логістик-Постач"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "34791217"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA023348510000026526309765828"
+   },
+   {
+    "category": "PERSON",
+    "value": "Возняк Ірина Зеновіївна"
+   },
+   {
+    "category": "IPN",
+    "value": "9871689768"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA833348510000026409342692767"
+   },
+   {
+    "category": "ORG",
+    "value": "Фарм-Консалт"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "35145748"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA413348510000026906688281126"
+   },
+   {
+    "category": "PERSON",
+    "value": "Марченко Б.С."
+   },
+   {
+    "category": "IPN",
+    "value": "0599728379"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA803510050000026568306866953"
+   },
+   {
+    "category": "ORG",
+    "value": "Еко-Систем"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "35237740"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA273348510000026326270586021"
+   },
+   {
+    "category": "ORG",
+    "value": "Інвестпостач"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "37315753"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA053052990000026210521854914"
+   },
+   {
+    "category": "ORG",
+    "value": "Нафто-Інжиніринг"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "43141825"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA283348510000026205258983194"
+   },
+   {
+    "category": "ORG",
+    "value": "Інвестпостач"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "37315753"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA053052990000026210521854914"
+   },
+   {
+    "category": "ORG",
+    "value": "Світ-Трейд"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "33946427"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA523052990000026041189557990"
+   },
+   {
+    "category": "ORG",
+    "value": "Карпат-Консалт"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "30943814"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA343510050000026037038265384"
+   },
+   {
+    "category": "ORG",
+    "value": "Нафто-Інжиніринг"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "43141825"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA283348510000026205258983194"
+   },
+   {
+    "category": "ORG",
+    "value": "Світ-Трейд"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "33946427"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA523052990000026041189557990"
+   },
+   {
+    "category": "ORG",
+    "value": "Агро-Рітейл"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "39309646"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA573253650000026642300487645"
+   },
+   {
+    "category": "PERSON",
+    "value": "Тимошенко Л.В."
+   },
+   {
+    "category": "IPN",
+    "value": "7028382226"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA903510050000026398286408948"
+   },
+   {
+    "category": "PERSON",
+    "value": "МАРЧЕНКО БОЖЕНА СЕРГІЇВНА"
+   },
+   {
+    "category": "IPN",
+    "value": "0599728379"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA763004650000026584441930399"
+   },
+   {
+    "category": "ORG",
+    "value": "Карпат-Консалт"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "30943814"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA343510050000026037038265384"
+   },
+   {
+    "category": "PERSON",
+    "value": "Возняк І.З."
+   },
+   {
+    "category": "PERSON",
+    "value": "Ірина Возняк"
+   }
+  ],
+  "03_dogovir_postavky.docx": [
+   {
+    "category": "PERSON",
+    "value": "Зеновій Чорновол"
+   },
+   {
+    "category": "ORG",
+    "value": "Хлібплюс"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "34419851"
+   },
+   {
+    "category": "PERSON",
+    "value": "Мельника Миколаа Добромировича"
+   },
+   {
+    "category": "ORG",
+    "value": "Інвестпостач"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "37315753"
+   },
+   {
+    "category": "PERSON",
+    "value": "Кравчук Ірини Романівни"
+   },
+   {
+    "category": "PERSON",
+    "value": "Ткаченко Остап Юрійович"
+   },
+   {
+    "category": "IPN",
+    "value": "1884472940"
+   },
+   {
+    "category": "PHONE",
+    "value": "+38 (066) 477-56-69"
+   },
+   {
+    "category": "ORG",
+    "value": "Хлібплюс"
+   },
+   {
+    "category": "ORG",
+    "value": "Інвестпостач"
+   },
+   {
+    "category": "ADDRESS",
+    "value": "68774, м. Одеса, вул. Січових, 109, оф. 1"
+   },
+   {
+    "category": "ADDRESS",
+    "value": "41236, м. Харків, вул. Шевченка, 33, оф. 27"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA163004650000026776472587718"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA053052990000026210521854914"
+   },
+   {
+    "category": "ORG",
+    "value": "Ощадбанк"
+   },
+   {
+    "category": "ORG",
+    "value": "ПриватБанк"
+   },
+   {
+    "category": "PERSON",
+    "value": "Мельник М.Д."
+   },
+   {
+    "category": "PERSON",
+    "value": "Кравчук І.Р."
+   },
+   {
+    "category": "PERSON",
+    "value": "Яковець Леся Іларіонівна"
+   },
+   {
+    "category": "EMAIL",
+    "value": "buh.67@agro-example.ua"
+   },
+   {
+    "category": "ORG",
+    "value": "Хлібплюс"
+   },
+   {
+    "category": "ORG",
+    "value": "Інвестпостач"
+   }
+  ],
+  "04_akt_vykonanykh_robit.pdf": [
+   {
+    "category": "ORG",
+    "value": "Світ-Трейд"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "33946427"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA523052990000026041189557990"
+   },
+   {
+    "category": "ORG",
+    "value": "ПриватБанк"
+   },
+   {
+    "category": "ADDRESS",
+    "value": "52979, м. Вінниця, вул. Велика, 28"
+   },
+   {
+    "category": "ORG",
+    "value": "Хлібплюс"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "34419851"
+   },
+   {
+    "category": "PERSON",
+    "value": "Бондаренко Олександр Аркадійович"
+   },
+   {
+    "category": "PERSON",
+    "value": "Мельник М.Д."
+   },
+   {
+    "category": "PERSON",
+    "value": "Марія Руденко"
+   },
+   {
+    "category": "PHONE",
+    "value": "+38 (093) 479-22-34"
+   },
+   {
+    "category": "PERSON",
+    "value": "Олександр Бондаренко"
+   }
+  ],
+  "05_invoice_canada.pdf": [
+   {
+    "category": "ORG",
+    "value": "Northwind Foods"
+   },
+   {
+    "category": "ORG",
+    "value": "Bluewater Foods"
+   },
+   {
+    "category": "PERSON",
+    "value": "Laura Thompson"
+   },
+   {
+    "category": "ADDRESS",
+    "value": "405 Bank Street, Ottawa, ON K1P 5N7"
+   },
+   {
+    "category": "PHONE",
+    "value": "+1 613-555-0194"
+   },
+   {
+    "category": "EMAIL",
+    "value": "laura@bluewater-example.ca"
+   },
+   {
+    "category": "PERSON",
+    "value": "Olivia MacLeod"
+   },
+   {
+    "category": "SIN",
+    "value": "195 965 058"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "1234-6884000"
+   },
+   {
+    "category": "ORG",
+    "value": "Royal Bank of Canada"
+   }
+  ],
+  "06_sluzhebnaya_zapiska.txt": [
+   {
+    "category": "PERSON",
+    "value": "Лебедевой А.С."
+   },
+   {
+    "category": "PERSON",
+    "value": "Соколова Дмитрия Андреевича"
+   },
+   {
+    "category": "ORG",
+    "value": "Енерго-Рітейл"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "34220771"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA363253650000026645060454146"
+   },
+   {
+    "category": "PERSON",
+    "value": "Олександр Пилипишин"
+   },
+   {
+    "category": "PHONE",
+    "value": "+38 (050) 735-15-79"
+   },
+   {
+    "category": "PERSON",
+    "value": "Соколов Д.А."
+   }
+  ],
+  "07_lyst_skan.png": [
+   {
+    "category": "ORG",
+    "value": "Логістик-Сервіс"
+   },
+   {
+    "category": "EDRPOU",
+    "value": "32108593"
+   },
+   {
+    "category": "ACCOUNT",
+    "value": "UA383052990000026859406925666"
+   },
+   {
+    "category": "PERSON",
+    "value": "Марченко Божена Сергіївна"
+   }
+  ]
+ },
+ "client": {
+  "form": "ТОВ",
+  "name": "Хлібплюс"
+ }
+}
