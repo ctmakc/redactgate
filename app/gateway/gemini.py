@@ -5,7 +5,7 @@ Translates the canonical OpenAI chat payload to the Gemini ``generateContent`` s
 - system messages become a top-level ``systemInstruction``.
 - remaining messages map to ``contents[{role: user|model, parts:[{text}]}]``.
 - ``temperature`` / ``max_tokens`` map into ``generationConfig``.
-- the API key travels as a ``?key=`` query parameter.
+- the API key travels in the ``x-goog-api-key`` header (never in the URL).
 - non-stream: ``candidates[0].content.parts[].text`` is concatenated back.
 - stream: ``:streamGenerateContent?alt=sse`` yields ``data:`` SSE lines, each a
   partial ``generateContent`` response whose parts become chunk deltas.
@@ -113,11 +113,11 @@ class GeminiProvider(Provider):
             body["generationConfig"] = gen_config
         return body
 
-    def _params(self, extra: dict[str, str] | None = None) -> dict[str, str]:
-        params = {"key": self._api_key}
-        if extra:
-            params.update(extra)
-        return params
+    def _headers(self) -> dict[str, str]:
+        # SECURITY: the key travels in the ``x-goog-api-key`` header, NOT a ``?key=`` query
+        # parameter — httpx logs every request URL at INFO, so a query-string key ended up
+        # in the application logs on each call.
+        return {"Content-Type": "application/json", "x-goog-api-key": self._api_key}
 
     async def complete(self, payload: dict[str, Any]) -> dict[str, Any]:
         model = self._resolve_model(payload)
@@ -127,8 +127,7 @@ class GeminiProvider(Provider):
                 resp = await client.post(
                     url,
                     json=self._body(payload),
-                    params=self._params(),
-                    headers={"Content-Type": "application/json"},
+                    headers=self._headers(),
                 )
             except httpx.HTTPError as exc:
                 raise ProviderError(str(exc), status_code=502, provider=self.name) from exc
@@ -166,8 +165,8 @@ class GeminiProvider(Provider):
                     "POST",
                     url,
                     json=self._body(payload),
-                    params=self._params({"alt": "sse"}),
-                    headers={"Content-Type": "application/json"},
+                    params={"alt": "sse"},
+                    headers=self._headers(),
                 ) as resp:
                     if resp.status_code >= 400:
                         body = await resp.aread()

@@ -113,10 +113,20 @@ def create_app() -> FastAPI:
         except Exception as exc:  # noqa: BLE001
             log.warning("router %s not wired: %s", module_path, exc)
 
+    from app.gateway.base import ProviderError
+
+    @app.exception_handler(ProviderError)
+    async def _provider_error(_request, exc: ProviderError):
+        # Raised from dependencies (auth -> 401, unknown provider -> 400) as well as
+        # adapters; surface its intended status instead of falling through to a 500.
+        return JSONResponse(status_code=exc.status_code, content=error_body(str(exc)))
+
     @app.exception_handler(Exception)
-    async def _unhandled(_request, exc: Exception):  # pragma: no cover
+    async def _unhandled(_request, exc: Exception):
         log.exception("unhandled error")
-        return JSONResponse(status_code=500, content=error_body(str(exc)))
+        # Never echo the raw exception text: DB/driver errors can carry SQL, parameters,
+        # hostnames or other internals.
+        return JSONResponse(status_code=500, content=error_body("internal server error"))
 
     @app.get("/")
     async def root():

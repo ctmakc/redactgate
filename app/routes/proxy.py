@@ -307,38 +307,45 @@ async def _stream_response(
     session was alive) so this generator needs no store access after the request closes.
     """
     try:
-        async for chunk in provider.stream(sanitized):
-            delta = extract_delta_text(chunk)
-            if delta:
-                out = await detok.push(delta)
-                set_delta_text(chunk, out)
-            yield _sse_chunk(chunk)
-        # Flush any buffered tail (a placeholder split across the last chunks).
-        tail = await detok.flush()
-        if tail:
-            yield _sse_chunk(
-                {
-                    "object": "chat.completion.chunk",
-                    "choices": [{"index": 0, "delta": {"content": tail}, "finish_reason": None}],
-                }
-            )
-    except ProviderError as exc:
-        # Surface upstream failures inline in the SSE stream (status already 200).
-        yield _sse_chunk(error_body(str(exc), code="provider_error"))
-    finally:
+        try:
+            async for chunk in provider.stream(sanitized):
+                delta = extract_delta_text(chunk)
+                if delta:
+                    out = await detok.push(delta)
+                    set_delta_text(chunk, out)
+                yield _sse_chunk(chunk)
+            # Flush any buffered tail (a placeholder split across the last chunks).
+            tail = await detok.flush()
+            if tail:
+                yield _sse_chunk(
+                    {
+                        "object": "chat.completion.chunk",
+                        "choices": [
+                            {"index": 0, "delta": {"content": tail}, "finish_reason": None}
+                        ],
+                    }
+                )
+        except ProviderError as exc:
+            # Surface upstream failures inline in the SSE stream (status already 200).
+            yield _sse_chunk(error_body(str(exc), code="provider_error"))
+        # NOT in a ``finally``: yielding while the generator is being closed (client
+        # disconnect -> aclose()/GeneratorExit) raises "async generator ignored
+        # GeneratorExit".
         yield b"data: [DONE]\n\n"
-
-    # Fresh session: the request session is already committed/closed by the time this
-    # generator finishes streaming.
-    await _safe_audit_fresh(
-        auth=auth,
-        session_id=ctx.session_id,
-        route=route,
-        provider=provider_name,
-        entity_counts=ctx.entity_counts,
-        blocked=False,
-        latency_ms=int((time.perf_counter() - started) * 1000),
-    )
+    finally:
+        # Fresh session: the request session is already committed/closed by the time this
+        # generator finishes streaming. Runs on normal completion, upstream errors AND
+        # client disconnects, so a (redacted) request that reached upstream is always
+        # audited.
+        await _safe_audit_fresh(
+            auth=auth,
+            session_id=ctx.session_id,
+            route=route,
+            provider=provider_name,
+            entity_counts=ctx.entity_counts,
+            blocked=False,
+            latency_ms=int((time.perf_counter() - started) * 1000),
+        )
 
 
 # ── Routes ───────────────────────────────────────────────────────────────────────

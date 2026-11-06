@@ -9,6 +9,8 @@ raw entity value.
 
 from __future__ import annotations
 
+import hmac
+import uuid
 from typing import TYPE_CHECKING, Annotated, Any
 
 from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query
@@ -17,11 +19,14 @@ from sqlalchemy import func, select
 from app.config import settings
 from app.db import get_session
 from app.models import AuditEvent, EvalRun, Policy, RedactionSession
+from app.schemas.entities import PolicyMode
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/admin")
+
+_MODES = sorted(m.value for m in PolicyMode)
 
 
 async def require_admin(
@@ -36,7 +41,11 @@ async def require_admin(
         if settings.environment == "dev":
             return
         raise HTTPException(status_code=503, detail="admin API not configured (set ADMIN_TOKEN)")
-    if x_admin_token != settings.admin_token:
+    # Constant-time comparison: a plain ``!=`` short-circuits on the first differing
+    # byte and leaks the token prefix through response timing.
+    if x_admin_token is None or not hmac.compare_digest(
+        x_admin_token.encode(), settings.admin_token.encode()
+    ):
         raise HTTPException(status_code=401, detail="invalid or missing admin token")
 
 
@@ -174,11 +183,20 @@ async def create_policy(
     name = body.get("name")
     if not org_id or not name:
         raise HTTPException(status_code=400, detail="org_id and name are required")
+    # Validate up front: a malformed org_id or an unknown mode otherwise reaches the DB
+    # (uuid cast / ``policy_mode_chk``) and surfaces as an opaque 500.
+    try:
+        org_id = uuid.UUID(str(org_id))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="org_id must be a UUID") from None
+    mode = body.get("mode", "tokenize")
+    if mode not in {m.value for m in PolicyMode}:
+        raise HTTPException(status_code=400, detail=f"mode must be one of {_MODES}")
 
     policy = Policy(
         org_id=org_id,
         name=name,
-        mode=body.get("mode", "tokenize"),
+        mode=mode,
         pack_ids=list(body.get("pack_ids") or []),
         blocked_types=list(body.get("blocked_types") or []),
         allowed_providers=list(body.get("allowed_providers") or []),

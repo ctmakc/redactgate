@@ -292,8 +292,9 @@ async def test_gemini_complete_translates_generate_content():
     out = await GeminiProvider(s).complete(_payload(model="auto"))
     assert route.called
     _assert_openai_completion(out, content="gemini reply")
-    # API key travels as a query parameter.
-    assert "key=gk-test" in str(route.calls.last.request.url)
+    # API key travels in the x-goog-api-key header, never in the (logged) URL.
+    assert route.calls.last.request.headers["x-goog-api-key"] == "gk-test"
+    assert "gk-test" not in str(route.calls.last.request.url)
     sent = json.loads(route.calls.last.request.content)
     assert sent["systemInstruction"]["parts"][0]["text"] == "You are terse."
 

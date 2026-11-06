@@ -160,6 +160,25 @@ class RedactionPipeline:
         if text:
             restored = await self.vault.detokenize(text, session_id=ctx.session_id)
             set_completion_text(completion, restored)
+        # Tool/function-call arguments are model output too: the upstream only ever saw
+        # placeholders, so its tool calls carry them and must be restored for the client
+        # (otherwise the client executes a tool with ``[[SIN_xxxx]]`` instead of the value).
+        try:
+            message = completion["choices"][0]["message"]
+        except (KeyError, IndexError, TypeError):
+            message = None
+        if isinstance(message, dict):
+            calls = [
+                tc.get("function")
+                for tc in (message.get("tool_calls") or [])
+                if isinstance(tc, dict)
+            ]
+            calls.append(message.get("function_call"))
+            for fn in calls:
+                if isinstance(fn, dict) and isinstance(fn.get("arguments"), str):
+                    fn["arguments"] = await self.vault.detokenize(
+                        fn["arguments"], session_id=ctx.session_id
+                    )
         return completion
 
     def reinflate_stream(self, ctx: PipelineContext) -> StreamDetokenizer:
