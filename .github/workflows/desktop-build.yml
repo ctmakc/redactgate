@@ -44,6 +44,7 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force out | Out-Null
+          choco install nsis -y --no-progress | Out-Null
           & "C:\Program Files (x86)\NSIS\makensis.exe" /V2 /DVERSION=0.1.0 "/DSRCDIR=$PWD\dist\redactgate-desktop" "/DOUTDIR=$PWD\out" "/DLICENSEFILE=$PWD\LICENSE" packaging\desktop\installer.nsi
       - name: E2E against the built app
         shell: bash
