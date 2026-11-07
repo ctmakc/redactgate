@@ -8,9 +8,8 @@ import pytest
 
 from app.desktop import labels as L
 from app.desktop import netguard
-from app.desktop.engine import Anonymizer, Options, normalize, parse_person
+from app.desktop.engine import Anonymizer, Options, Replacement, normalize, parse_person
 from app.desktop.formats import _apply_to_nodes, _csv_cells
-from app.desktop.engine import Replacement
 from app.desktop.vaultdb import BadPassword, LabelVault, VaultLocked
 
 

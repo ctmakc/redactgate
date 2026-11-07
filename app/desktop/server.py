@@ -20,7 +20,6 @@ import time
 import traceback
 import uuid
 import zipfile
-from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, quote, unquote, urlparse
@@ -28,7 +27,13 @@ from urllib.parse import parse_qs, quote, unquote, urlparse
 from app.desktop import __version__, netguard
 from app.desktop import labels as L
 from app.desktop.engine import Anonymizer, Options
-from app.desktop.formats import SUPPORTED_EXT, OcrUnavailable, UnsupportedFormat, find_tesseract, kind_of
+from app.desktop.formats import (
+    SUPPORTED_EXT,
+    OcrUnavailable,
+    UnsupportedFormat,
+    find_tesseract,
+    kind_of,
+)
 from app.desktop.pipeline import anonymize_file, prescan_files, restore_file
 from app.desktop.vaultdb import BadPassword, LabelVault, VaultLocked
 

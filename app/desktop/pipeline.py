@@ -5,10 +5,15 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass, field
 
-from app.desktop.engine import Anonymizer, Options, Replacement, RunState, apply_replacements, label_digest
+from app.desktop.engine import (
+    Anonymizer,
+    Options,
+    Replacement,
+    RunState,
+    apply_replacements,
+    label_digest,
+)
 from app.desktop.formats import CsvHandler, handler_for, kind_of, output_name
-
-
 
 
 @dataclass
