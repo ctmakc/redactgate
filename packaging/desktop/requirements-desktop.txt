@@ -1,0 +1,7 @@
+# Runtime deps of the offline desktop app (no web stack, no NER models).
+cryptography>=43
+pyyaml>=6
+pydantic>=2.7,<3
+lxml>=5
+pymupdf>=1.26,<2
+psutil>=5.9
