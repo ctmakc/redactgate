@@ -99,6 +99,30 @@ def _parse_entities(raw: str | None) -> list[dict[str, Any]]:
     return [it for it in items if isinstance(it, dict)]
 
 
+_NON_TYPE_CHARS_RE = re.compile(r"[^A-Z0-9_]+")
+# Keeps ``[[TYPE_hex]]`` well under MAX_PLACEHOLDER_LEN (the stream hold-back window).
+_MAX_TYPE_LEN = 40
+
+
+def _placeholder_safe_type(etype: str) -> str:
+    """Coerce a model-reported type into the placeholder grammar (``[A-Z][A-Z0-9_]*``).
+
+    The type string comes from the LLM verbatim. Without this, ``"date-of-birth"`` became
+    ``[[DATE-OF-BIRTH_ab12cd]]`` — a placeholder ``PLACEHOLDER_RE`` never matches, so the
+    real value was never re-inflated into the answer (and a very long type overflowed the
+    stream de-tokenizer's hold-back window). Non-ASCII/unknown → ``"ENTITY"``.
+    """
+    if not etype.strip():
+        return ""  # blank type -> caller skips the item (unchanged behaviour)
+    t = _NON_TYPE_CHARS_RE.sub("_", etype.strip().upper()).strip("_")
+    t = re.sub(r"_+", "_", t)[:_MAX_TYPE_LEN].rstrip("_")
+    if not t:
+        return "ENTITY"
+    if not t[0].isalpha():
+        t = ("E_" + t)[:_MAX_TYPE_LEN].rstrip("_")
+    return t
+
+
 def _anchor_spans(text: str, items: list[dict[str, Any]]) -> list[EntitySpan]:
     """Re-locate each reported entity ``text`` within the source to produce valid offsets."""
     spans: list[EntitySpan] = []
@@ -108,7 +132,7 @@ def _anchor_spans(text: str, items: list[dict[str, Any]]) -> list[EntitySpan]:
         etype = item.get("type") or item.get("entity_type")
         if not isinstance(value, str) or not value or not isinstance(etype, str):
             continue
-        norm_type = etype.strip().upper().replace(" ", "_")
+        norm_type = _placeholder_safe_type(etype)
         if not norm_type:
             continue
         # Find the first occurrence not already claimed by a previous span.

@@ -181,8 +181,18 @@ class LabelVault(Vault):
             salt2 = os.urandom(16)
             kek2 = _hkdf(self._derive(new, salt2), b"key-wrap")
             nonce = os.urandom(12)
-            self._set_meta("salt", salt2)
-            self._set_meta("wrapped", nonce + AESGCM(kek2).encrypt(nonce, data_key, _VERIFIER))
+            wrapped2 = nonce + AESGCM(kek2).encrypt(nonce, data_key, _VERIFIER)
+            # The connection is in autocommit mode: without an explicit transaction a crash
+            # between these two writes left a new salt next to the old wrapped key, and
+            # neither password could ever unlock the vault again.
+            self._db.execute("BEGIN IMMEDIATE")
+            try:
+                self._set_meta("salt", salt2)
+                self._set_meta("wrapped", wrapped2)
+            except BaseException:
+                self._db.execute("ROLLBACK")
+                raise
+            self._db.execute("COMMIT")
 
     def lock(self) -> None:
         with self._lock:

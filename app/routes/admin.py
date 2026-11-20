@@ -9,6 +9,7 @@ raw entity value.
 
 from __future__ import annotations
 
+import hmac
 from typing import TYPE_CHECKING, Annotated, Any
 
 from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query
@@ -36,7 +37,10 @@ async def require_admin(
         if settings.environment == "dev":
             return
         raise HTTPException(status_code=503, detail="admin API not configured (set ADMIN_TOKEN)")
-    if x_admin_token != settings.admin_token:
+    # Constant-time compare (bytes, so a non-ASCII header cannot raise TypeError -> 500).
+    if x_admin_token is None or not hmac.compare_digest(
+        x_admin_token.encode("utf-8"), settings.admin_token.encode("utf-8")
+    ):
         raise HTTPException(status_code=401, detail="invalid or missing admin token")
 
 

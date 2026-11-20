@@ -23,6 +23,55 @@ logging.basicConfig(level=settings.log_level)
 log = logging.getLogger("redactgate")
 
 
+class _ChunkedBodyLimit:
+    """Enforce ``max_body_bytes`` on requests that carry NO ``Content-Length``.
+
+    The ``_limit_body_size`` HTTP middleware only inspects the declared length, so a
+    ``Transfer-Encoding: chunked`` upload skipped the cap entirely and reached the
+    (CPU-heavy) detection path at any size. Here the body is buffered up to the cap and
+    replayed to the app; one byte over → 413 before any route code runs.
+    """
+
+    def __init__(self, app) -> None:
+        self.app = app
+
+    async def __call__(self, scope, receive, send) -> None:
+        if scope["type"] != "http" or any(k == b"content-length" for k, _ in scope["headers"]):
+            await self.app(scope, receive, send)
+            return
+
+        limit = settings.max_body_bytes
+        chunks: list[bytes] = []
+        size = 0
+        while True:
+            message = await receive()
+            if message["type"] != "http.request":  # client went away mid-upload
+                return
+            body = message.get("body", b"")
+            size += len(body)
+            if size > limit:
+                response = JSONResponse(
+                    status_code=413,
+                    content=error_body("request body too large", code="payload_too_large"),
+                )
+                await response(scope, receive, send)
+                return
+            chunks.append(body)
+            if not message.get("more_body", False):
+                break
+
+        replayed = False
+
+        async def replay():
+            nonlocal replayed
+            if not replayed:
+                replayed = True
+                return {"type": "http.request", "body": b"".join(chunks), "more_body": False}
+            return await receive()
+
+        await self.app(scope, replay, send)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Register provider adapters.
@@ -86,6 +135,8 @@ def create_app() -> FastAPI:
         allow_headers=["Authorization", "Content-Type", "X-Admin-Token"],
     )
 
+    app.add_middleware(_ChunkedBodyLimit)
+
     @app.middleware("http")
     async def _limit_body_size(request, call_next):
         # Reject oversized bodies before they reach the (CPU-heavy) detection path.
@@ -115,8 +166,13 @@ def create_app() -> FastAPI:
 
     @app.exception_handler(Exception)
     async def _unhandled(_request, exc: Exception):  # pragma: no cover
+        # Full detail goes to the server log only. ``str(exc)`` can carry SQL statements
+        # with bound parameters, DSNs or upstream URLs — never echo it to the client.
         log.exception("unhandled error")
-        return JSONResponse(status_code=500, content=error_body(str(exc)))
+        return JSONResponse(
+            status_code=500,
+            content=error_body("internal server error", code="internal_error"),
+        )
 
     @app.get("/")
     async def root():

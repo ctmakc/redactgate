@@ -62,7 +62,8 @@ class ResponsesRequest(BaseModel):
 # the upstream LLM un-redacted. We cover: message `content` (str or text/​input/​output
 # parts), assistant `tool_calls[].function.arguments` and legacy `function_call.arguments`
 # (JSON strings that routinely embed PII), and the /v1/responses `input` (a string, a flat
-# list of text parts, OR a list of message objects with nested `content`).
+# list of text parts, OR a list of message objects with nested `content`), plus the
+# Responses `instructions` string and `function_call` / `function_call_output` items.
 #
 # ``extract_texts`` and ``inject_texts`` are BOTH built on the single ``_map_texts`` walker
 # so they can never drift out of alignment (a drift = either a leak or a corrupted payload).
@@ -124,8 +125,16 @@ def _map_texts(payload: dict[str, Any], fn: Callable[[str], str]) -> dict[str, A
                 _walk_message(item, fn)
             elif item.get("type") in _TEXT_PART_TYPES and isinstance(item.get("text"), str):
                 item["text"] = fn(item["text"])  # flat input_text part
+            elif item.get("type") == "function_call" and isinstance(item.get("arguments"), str):
+                item["arguments"] = fn(item["arguments"])  # Responses tool call (JSON args)
+            elif item.get("type") == "function_call_output" and "output" in item:
+                # Responses tool result: a string, or a list of input_text parts.
+                item["output"] = _walk_content(item["output"], fn)
             elif isinstance(item.get("text"), str):
                 item["text"] = fn(item["text"])  # bare {text: ...}
+    # Responses-API system prompt — routinely carries client names / account numbers.
+    if isinstance(out.get("instructions"), str):
+        out["instructions"] = fn(out["instructions"])
     return out
 
 

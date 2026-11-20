@@ -93,7 +93,7 @@ class GeminiProvider(Provider):
         # SECURITY: the model is interpolated into the upstream URL path
         # (/models/{model}:generateContent). Reject anything outside a strict model-name
         # charset so a caller cannot path-traverse or redirect the request.
-        if not _MODEL_RE.match(resolved):
+        if not _MODEL_RE.fullmatch(resolved):
             raise ProviderError(
                 f"invalid model name '{resolved}'", status_code=400, provider=self.name
             )

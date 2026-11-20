@@ -139,7 +139,14 @@ class Handler(BaseHTTPRequestHandler):
         return secrets.compare_digest(tok, self.app.token)
 
     def _body(self) -> bytes:
-        n = int(self.headers.get("Content-Length") or 0)
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            raise ValueError("bad Content-Length") from None
+        # A negative length made rfile.read(-1) block until the socket closed, unbounded
+        # by MAX_UPLOAD.
+        if n < 0:
+            raise ValueError("bad Content-Length")
         if n > MAX_UPLOAD:
             raise ValueError("file too large")
         return self.rfile.read(n) if n else b""
@@ -203,7 +210,8 @@ class Handler(BaseHTTPRequestHandler):
         ui = res_dir() / "ui"
         rel = "index.html" if path in ("/", "") else unquote(path.lstrip("/"))
         target = (ui / rel).resolve()
-        if not str(target).startswith(str(ui.resolve())) or not target.is_file():
+        # is_relative_to, not a string prefix: "/…/ui-other/x" starts with "/…/ui".
+        if not target.is_relative_to(ui.resolve()) or not target.is_file():
             self._err(404, "not found")
             return
         fixed = {".js": "application/javascript", ".css": "text/css", ".html": "text/html", ".svg": "image/svg+xml",

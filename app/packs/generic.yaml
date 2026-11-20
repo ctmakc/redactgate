@@ -13,7 +13,7 @@ entity_types:
   - DATE_OF_BIRTH
 patterns:
   - type: EMAIL
-    regex: '\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b'
+    regex: '\b[A-Za-z0-9._%+\-]{1,64}@[A-Za-z0-9.\-]{1,253}\.[A-Za-z]{2,}\b'
     description: 'Email address'
   - type: CREDIT_CARD
     # 13–19 digits with optional single space/hyphen separators, Luhn-validated so random

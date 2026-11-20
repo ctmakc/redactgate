@@ -15,6 +15,7 @@ import logging
 import time
 from typing import TYPE_CHECKING, Any
 
+import anyio
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
@@ -75,6 +76,10 @@ def _usage(completion: dict[str, Any]) -> tuple[int | None, int | None]:
 
 
 _log = logging.getLogger("redactgate.proxy")
+
+# Upper bound for the shielded end-of-stream audit write (runs even after a disconnect).
+_STREAM_AUDIT_TIMEOUT_S = 10.0
+
 
 async def _safe_audit(
     audit_sink: DBAuditSink | None,
@@ -306,39 +311,50 @@ async def _stream_response(
     ``detok`` is a PRE-RESOLVED ``StreamDetokenizer`` (built in the handler while the DB
     session was alive) so this generator needs no store access after the request closes.
     """
+    # NOTE: never ``yield`` from a ``finally`` here. When the client disconnects, Starlette
+    # cancels / ``aclose()``s this generator; a yield during GeneratorExit raises
+    # "async generator ignored GeneratorExit" and the audit write below was skipped, so a
+    # request that already went upstream was never recorded.
     try:
-        async for chunk in provider.stream(sanitized):
-            delta = extract_delta_text(chunk)
-            if delta:
-                out = await detok.push(delta)
-                set_delta_text(chunk, out)
-            yield _sse_chunk(chunk)
-        # Flush any buffered tail (a placeholder split across the last chunks).
-        tail = await detok.flush()
-        if tail:
-            yield _sse_chunk(
-                {
-                    "object": "chat.completion.chunk",
-                    "choices": [{"index": 0, "delta": {"content": tail}, "finish_reason": None}],
-                }
-            )
-    except ProviderError as exc:
-        # Surface upstream failures inline in the SSE stream (status already 200).
-        yield _sse_chunk(error_body(str(exc), code="provider_error"))
-    finally:
+        try:
+            async for chunk in provider.stream(sanitized):
+                delta = extract_delta_text(chunk)
+                if delta:
+                    out = await detok.push(delta)
+                    set_delta_text(chunk, out)
+                yield _sse_chunk(chunk)
+            # Flush any buffered tail (a placeholder split across the last chunks).
+            tail = await detok.flush()
+            if tail:
+                yield _sse_chunk(
+                    {
+                        "object": "chat.completion.chunk",
+                        "choices": [
+                            {"index": 0, "delta": {"content": tail}, "finish_reason": None}
+                        ],
+                    }
+                )
+        except ProviderError as exc:
+            # Surface upstream failures inline in the SSE stream (status already 200).
+            yield _sse_chunk(error_body(str(exc), code="provider_error"))
+        except Exception:
+            yield b"data: [DONE]\n\n"
+            raise
         yield b"data: [DONE]\n\n"
-
-    # Fresh session: the request session is already committed/closed by the time this
-    # generator finishes streaming.
-    await _safe_audit_fresh(
-        auth=auth,
-        session_id=ctx.session_id,
-        route=route,
-        provider=provider_name,
-        entity_counts=ctx.entity_counts,
-        blocked=False,
-        latency_ms=int((time.perf_counter() - started) * 1000),
-    )
+    finally:
+        # Fresh session: the request session is already committed/closed by the time this
+        # generator finishes streaming. Shielded (bounded) so a client disconnect — which
+        # cancels the response task — cannot drop the audit event.
+        with anyio.move_on_after(_STREAM_AUDIT_TIMEOUT_S, shield=True):
+            await _safe_audit_fresh(
+                auth=auth,
+                session_id=ctx.session_id,
+                route=route,
+                provider=provider_name,
+                entity_counts=ctx.entity_counts,
+                blocked=False,
+                latency_ms=int((time.perf_counter() - started) * 1000),
+            )
 
 
 # ── Routes ───────────────────────────────────────────────────────────────────────

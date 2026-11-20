@@ -7,6 +7,7 @@ orchestrator can hold traffic until dependencies are healthy.
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, Depends
@@ -19,6 +20,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter()
+_log = logging.getLogger("redactgate.health")
 
 _SessionDep = Depends(get_session)
 
@@ -33,8 +35,11 @@ async def readyz(session: AsyncSession = _SessionDep) -> JSONResponse:
     try:
         await session.execute(text("SELECT 1"))
     except Exception as exc:  # noqa: BLE001 - any DB failure means "not ready"
+        # Unauthenticated probe: log the driver error (may name the DB host/user), return
+        # only its class to the caller.
+        _log.warning("readyz: database check failed: %s", exc)
         return JSONResponse(
             status_code=503,
-            content={"status": "unavailable", "detail": str(exc)},
+            content={"status": "unavailable", "detail": f"database unavailable ({type(exc).__name__})"},
         )
     return JSONResponse(status_code=200, content={"status": "ok"})
